@@ -54,6 +54,19 @@ export function useAutoUpdater(
       setPhase((prev) => (prev === 'downloading' || prev === 'ready' ? 'error' : prev))
     })
 
+    // Reforço: dispara uma checagem ativa ao montar o hook para evitar perder
+    // o evento "update-available" caso ele ocorra antes dos listeners no renderer.
+    void u.check().then((resp) => {
+      if (!resp.ok || resp.skipped) return
+      const v = resp.updateInfo?.version?.trim()
+      if (!v) return
+      setRemoteVersion(v)
+      setPhase('available')
+      setOpen(true)
+      setErrorMessage('')
+      setPercent(0)
+    })
+
     return () => {
       offAvail()
       offProg()
