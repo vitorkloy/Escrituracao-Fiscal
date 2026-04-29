@@ -7,6 +7,7 @@ import { ManualPanel } from '@/components/nfce/panels/manual-panel'
 import { NfeDistribuicaoDfePanel } from '@/components/nfce/panels/nfe-distribuicao-dfe-panel'
 import { NfeRecepcaoEventoPanel } from '@/components/nfce/panels/nfe-recepcao-evento-panel'
 import { RelatorioPanel } from '@/components/nfce/panels/relatorio-panel'
+import { XmlRetencaoPanel } from '@/components/nfce/panels/xml-retencao-panel'
 import type {
   AppModule,
   AppTab,
@@ -68,6 +69,11 @@ export function MainPanelArea({
         {activeTab === 'relatorio' && (
           <div className="h-full flex flex-col overflow-hidden">
             <RelatorioPanel showToast={showToast} />
+          </div>
+        )}
+        {activeTab === 'xml-retencao' && (
+          <div className="h-full flex flex-col overflow-hidden">
+            <XmlRetencaoPanel showToast={showToast} />
           </div>
         )}
         {activeTab === 'manual' && (

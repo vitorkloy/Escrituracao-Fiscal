@@ -118,6 +118,17 @@ interface NfeXmlSalvoInfo {
   mes: string
 }
 
+type XmlRetencaoPastaNome = 'com_retencao' | 'sem_retencao' | 'invalidos'
+
+interface XmlRetencaoLinha {
+  nome: string
+  caminhoOriginal: string
+  temRetencao: boolean | null
+  pastaDestino: XmlRetencaoPastaNome
+  caminhoCopiado?: string
+  erro?: string
+}
+
 interface ProgressoLote {
   atual: number
   total: number
@@ -238,6 +249,17 @@ declare global {
           totalFormatoChave44: number
           totalCancelados: number
           cancelados: string[]
+          xMotivo?: string
+        }>
+      }
+      xmlRetencao: {
+        selecionarXmls(): Promise<string[]>
+        analisar(caminhos: string[]): Promise<{ ok: boolean; linhas?: XmlRetencaoLinha[]; xMotivo?: string }>
+        exportar(pastaRaiz: string, caminhos: string[]): Promise<{
+          ok: boolean
+          pastaRaiz?: string
+          resumo?: { comRetencao: number; semRetencao: number; invalidos: number }
+          linhas?: XmlRetencaoLinha[]
           xMotivo?: string
         }>
       }

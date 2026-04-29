@@ -119,6 +119,15 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.invoke('relatorio:listar-xmls', pastaSaida),
   },
 
+  xmlRetencao: {
+    selecionarXmls: () =>
+      ipcRenderer.invoke('xml-retencao:selecionar-xmls') as Promise<string[]>,
+    analisar: (caminhos: string[]) =>
+      ipcRenderer.invoke('xml-retencao:analisar', caminhos),
+    exportar: (pastaRaiz: string, caminhos: string[]) =>
+      ipcRenderer.invoke('xml-retencao:exportar', pastaRaiz, caminhos),
+  },
+
   app: {
     setBusy: (busy: boolean) => ipcRenderer.send('app:set-busy', busy),
     getVersion: () => ipcRenderer.invoke('app:get-version') as Promise<string>,

@@ -9,6 +9,7 @@ export type AppTab =
   | 'download'
   | 'relatorio'
   | 'manual'
+  | 'xml-retencao'
   | 'nfe-dist-dfe'
   | 'nfe-recepcao-evento'
 
@@ -67,3 +68,13 @@ export interface BatchDownloadResponse {
 }
 
 export type EmitenteFilter = 'todos' | 'matriz' | 'filiais' | (string & {})
+
+/** Linha da prévia/classificação de XML por pastas de retenção (espelha o IPC «xml-retencao»). */
+export interface XmlRetencaoLinha {
+  nome: string
+  caminhoOriginal: string
+  temRetencao: boolean | null
+  pastaDestino: 'com_retencao' | 'sem_retencao' | 'invalidos'
+  caminhoCopiado?: string
+  erro?: string
+}

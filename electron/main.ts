@@ -27,6 +27,13 @@ import type { DistDfeFiltroPapel } from './nfe-dist-dfe-parser'
 import { sincronizarDistDfeNfe, carregarUltNsu } from './nfe-dist-dfe-sync'
 import type { NfeDistDfeSyncProgresso } from './nfe-dist-dfe-sync'
 import { listarXmlsNfeSalvos, type NfeXmlSalvoInfo } from './nfe-list-xmls-local'
+import {
+  DIR_COM_RETENCAO,
+  DIR_SEM_RETENCAO,
+  DIR_INVALIDOS,
+  classificarArquivoXmlPorCaminho,
+  destinoUnicoNoDir,
+} from './xml-retencao'
 import { attachUpdaterListeners, registerUpdaterIpc, scheduleInitialUpdateCheck } from './updater'
 
 const execAsync = promisify(exec)
@@ -1507,6 +1514,163 @@ ipcMain.handle('fs:ler-arquivo-utf8', async (_e, caminhoArquivo: string) => {
     return { ok: true, conteudo }
   } catch (err: unknown) {
     return { ok: false, xMotivo: mensagemErro(err) }
+  }
+})
+
+const XML_RET_ARQUIVO_MAX = 280
+
+interface XmlRetencaoLinhaIpc {
+  nome: string
+  caminhoOriginal: string
+  temRetencao: boolean | null
+  pastaDestino: typeof DIR_COM_RETENCAO | typeof DIR_SEM_RETENCAO | typeof DIR_INVALIDOS
+  caminhoCopiado?: string
+  erro?: string
+}
+
+ipcMain.handle('xml-retencao:selecionar-xmls', async () => {
+  try {
+    const win = getWindow()
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Selecionar arquivos XML (NF-e / NFC-e)',
+      filters: [
+        { name: 'XML', extensions: ['xml'] },
+        { name: 'Todos os arquivos', extensions: ['*'] },
+      ],
+      properties: ['openFile', 'multiSelections'],
+    })
+    if (result.canceled || result.filePaths.length === 0) return []
+    return result.filePaths.slice(0, XML_RET_ARQUIVO_MAX)
+  } catch {
+    return []
+  }
+})
+
+ipcMain.handle('xml-retencao:analisar', async (_e, caminhos: string[]) => {
+  try {
+    const lista = Array.isArray(caminhos) ? caminhos.filter(Boolean) : []
+    if (lista.length === 0) {
+      return { ok: true, linhas: [] as XmlRetencaoLinhaIpc[] }
+    }
+    if (lista.length > XML_RET_ARQUIVO_MAX) {
+      return { ok: false, xMotivo: `Limite de ${XML_RET_ARQUIVO_MAX} arquivos por operação.`, linhas: [] }
+    }
+    const linhas: XmlRetencaoLinhaIpc[] = []
+    for (const caminho of lista) {
+      const nome = path.basename(caminho)
+      const r = classificarArquivoXmlPorCaminho(caminho)
+      if (r.classe === DIR_INVALIDOS) {
+        linhas.push({
+          nome,
+          caminhoOriginal: caminho,
+          temRetencao: null,
+          pastaDestino: DIR_INVALIDOS,
+          erro: r.erro,
+        })
+      } else {
+        linhas.push({
+          nome,
+          caminhoOriginal: caminho,
+          temRetencao: r.classe === DIR_COM_RETENCAO,
+          pastaDestino: r.classe,
+        })
+      }
+    }
+    return { ok: true, linhas }
+  } catch (err: unknown) {
+    return { ok: false, xMotivo: mensagemErro(err), linhas: [] }
+  }
+})
+
+ipcMain.handle('xml-retencao:exportar', async (_e, pastaRaiz: string, caminhos: string[]) => {
+  try {
+    const raiz = String(pastaRaiz ?? '').trim()
+    if (!raiz) throw new Error('Pasta de destino não informada.')
+    const absRaiz = path.resolve(raiz)
+    if (!fs.existsSync(absRaiz) || !fs.statSync(absRaiz).isDirectory()) {
+      throw new Error('Pasta de destino não encontrada.')
+    }
+    const lista = Array.isArray(caminhos) ? caminhos.filter(Boolean) : []
+    if (lista.length === 0) throw new Error('Nenhum arquivo selecionado.')
+    if (lista.length > XML_RET_ARQUIVO_MAX) {
+      throw new Error(`Limite de ${XML_RET_ARQUIVO_MAX} arquivos por operação.`)
+    }
+
+    const dirCom = path.join(absRaiz, DIR_COM_RETENCAO)
+    const dirSem = path.join(absRaiz, DIR_SEM_RETENCAO)
+    const dirInv = path.join(absRaiz, DIR_INVALIDOS)
+    fs.mkdirSync(dirCom, { recursive: true })
+    fs.mkdirSync(dirSem, { recursive: true })
+    fs.mkdirSync(dirInv, { recursive: true })
+
+    const linhas: XmlRetencaoLinhaIpc[] = []
+    let comRetencao = 0
+    let semRetencao = 0
+    let invalidos = 0
+
+    for (const caminho of lista) {
+      const nome = path.basename(caminho)
+      const r = classificarArquivoXmlPorCaminho(caminho)
+      if (r.classe === DIR_INVALIDOS) {
+        const dest = destinoUnicoNoDir(dirInv, nome)
+        try {
+          fs.copyFileSync(caminho, dest)
+          invalidos++
+        } catch (e: unknown) {
+          linhas.push({
+            nome,
+            caminhoOriginal: caminho,
+            temRetencao: null,
+            pastaDestino: DIR_INVALIDOS,
+            erro: mensagemErro(e),
+          })
+          continue
+        }
+        linhas.push({
+          nome,
+          caminhoOriginal: caminho,
+          temRetencao: null,
+          pastaDestino: DIR_INVALIDOS,
+          caminhoCopiado: dest,
+          erro: r.erro,
+        })
+        continue
+      }
+
+      const baseDir = r.classe === DIR_COM_RETENCAO ? dirCom : dirSem
+      const dest = destinoUnicoNoDir(baseDir, nome)
+      try {
+        fs.copyFileSync(caminho, dest)
+      } catch (e: unknown) {
+        linhas.push({
+          nome,
+          caminhoOriginal: caminho,
+          temRetencao: r.classe === DIR_COM_RETENCAO,
+          pastaDestino: r.classe,
+          erro: mensagemErro(e),
+        })
+        continue
+      }
+      if (r.classe === DIR_COM_RETENCAO) comRetencao++
+      else semRetencao++
+
+      linhas.push({
+        nome,
+        caminhoOriginal: caminho,
+        temRetencao: r.classe === DIR_COM_RETENCAO,
+        pastaDestino: r.classe,
+        caminhoCopiado: dest,
+      })
+    }
+
+    return {
+      ok: true,
+      pastaRaiz: absRaiz,
+      resumo: { comRetencao, semRetencao, invalidos },
+      linhas,
+    }
+  } catch (err: unknown) {
+    return { ok: false, xMotivo: mensagemErro(err), linhas: [] }
   }
 })
 
