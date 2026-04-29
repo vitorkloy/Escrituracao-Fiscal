@@ -37,7 +37,7 @@ function SidebarNav({
 }) {
   return (
     <nav
-      className="grid grid-cols-2 gap-2 px-3 py-2 md:py-0 md:flex md:flex-col md:gap-0.5 md:flex-1"
+      className="grid grid-cols-2 gap-2 px-3 py-2 md:py-0 md:flex md:flex-col md:gap-0.5 md:flex-1 md:min-h-0 md:overflow-y-auto"
       aria-label="Navegação principal"
     >
       {tabs.map((tab) => (
@@ -167,7 +167,7 @@ export function AppSidebar({
   const tabs = navTabsForModule(appModule)
 
   return (
-    <aside className="flex flex-col w-full md:w-56 shrink-0 bg-[var(--bg-base)] border-b md:border-b-0 md:border-r border-[var(--border)]">
+    <aside className="flex flex-col w-full md:w-56 shrink-0 min-h-0 bg-[var(--bg-base)] border-b md:border-b-0 md:border-r border-[var(--border)]">
       <div className="drag-region h-8 shrink-0 hidden md:block" />
       <div className="px-4 md:px-5 pt-3 md:pt-0 pb-4 md:pb-6">
         <div className="flex items-center gap-2.5 mb-1">
