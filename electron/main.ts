@@ -44,7 +44,7 @@ const execFileAsync = promisify(execFile)
 // ---------------------------------------------------------------------------
 
 type ThemePreference = 'light' | 'dark' | 'system'
-type AppModule = 'nfce' | 'nfe' | 'relatorio'
+type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao'
 
 interface CertStorePayload {
   pfxPath: string
@@ -374,7 +374,8 @@ app.on('window-all-closed', () => {
 ipcMain.handle('app:get-version', () => app.getVersion())
 ipcMain.handle(
   'app:set-modulo',
-  (_e, modulo: AppModule) => modulo === 'nfce' || modulo === 'nfe' || modulo === 'relatorio'
+  (_e, modulo: AppModule) =>
+    modulo === 'nfce' || modulo === 'nfe' || modulo === 'relatorio' || modulo === 'xml-retencao'
 )
 ipcMain.on('app:set-busy', (_e, busy: boolean) => {
   appEstaOcupada = Boolean(busy)

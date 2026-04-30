@@ -29,8 +29,13 @@ export const RELATORIO_NAV_TABS: NavTabConfig[] = [
   { id: 'xml-retencao', label: 'Classif. XML retenção', icon: funnelOutline },
 ]
 
-export function navTabsForModule(modulo: 'nfce' | 'nfe' | 'relatorio'): NavTabConfig[] {
+export const XML_RETENCAO_NAV_TABS: NavTabConfig[] = [
+  { id: 'xml-retencao', label: 'Classif. XML retenção', icon: funnelOutline },
+]
+
+export function navTabsForModule(modulo: 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao'): NavTabConfig[] {
   if (modulo === 'nfe') return NFE_NAV_TABS
   if (modulo === 'relatorio') return RELATORIO_NAV_TABS
+  if (modulo === 'xml-retencao') return XML_RETENCAO_NAV_TABS
   return NFCE_NAV_TABS
 }

@@ -21,7 +21,7 @@ export interface NavTabConfig {
 }
 
 export type SefazEnvironment = 'producao'
-export type AppModule = 'nfce' | 'nfe' | 'relatorio'
+export type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao'
 
 export type CertificateSourceMode = 'store' | 'arquivo'
 

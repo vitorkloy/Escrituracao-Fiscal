@@ -1,7 +1,7 @@
 'use client'
 
 import { IonIcon } from '@ionic/react'
-import { documentTextOutline, receiptOutline, statsChartOutline } from 'ionicons/icons'
+import { documentTextOutline, funnelOutline, receiptOutline, statsChartOutline } from 'ionicons/icons'
 import type { AppModule } from '@/types/nfce-app'
 
 type ModulePickerScreenProps = {
@@ -11,12 +11,12 @@ type ModulePickerScreenProps = {
 export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) {
   return (
     <div className="h-screen w-screen bg-[var(--bg-deep)] flex items-center justify-center p-6">
-      <div className="w-full max-w-[620px] rounded border border-[var(--border)] bg-[var(--bg-base)] p-6">
+      <div className="w-full max-w-[820px] rounded border border-[var(--border)] bg-[var(--bg-base)] p-6">
         <h1 className="text-xl font-semibold text-[var(--text-primary)] mb-2">Escolha o módulo</h1>
         <p className="text-sm text-[var(--text-secondary)] mb-5">
           Selecione qual tipo de documento deseja operar neste acesso.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <button
             type="button"
             onClick={() => onSelectModule('nfce')}
@@ -49,6 +49,17 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
               <span className="font-semibold">Relatório</span>
             </div>
             <p className="text-xs text-[var(--text-secondary)]">Comparativos XLSX a partir de XMLs da pasta.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectModule('xml-retencao')}
+            className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-4 text-left no-drag"
+          >
+            <div className="flex items-center gap-2 mb-2 text-[var(--text-primary)]">
+              <IonIcon icon={funnelOutline} className="w-5 h-5" />
+              <span className="font-semibold">XML Retenção</span>
+            </div>
+            <p className="text-xs text-[var(--text-secondary)]">Classificação de XMLs em com/sem retenção.</p>
           </button>
         </div>
       </div>

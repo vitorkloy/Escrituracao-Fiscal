@@ -15,14 +15,14 @@ type AppSidebarProps = {
   certificateReady: boolean
   hasSelectedCertificate: boolean
   appVersion: string
-  onSelectModule: (modulo: AppModule) => void
+  onRequestModulePicker: () => void
 }
 
 type SidebarFooterProps = {
   activeTab: AppTab
   onSelectTab: (tab: AppTab) => void
   appModule: AppModule
-  onSelectModule: (m: AppModule) => void
+  onRequestModulePicker: () => void
   appVersion: string
 }
 
@@ -61,63 +61,11 @@ function SidebarNav({
   )
 }
 
-function ModuleToggle({
-  appModule,
-  onSelectModule,
-}: {
-  appModule: AppModule
-  onSelectModule: (m: AppModule) => void
-}) {
-  return (
-    <div className="mb-3">
-      <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)] mb-1.5">Módulo</p>
-      <div className="grid grid-cols-3 gap-2">
-        <button
-          type="button"
-          onClick={() => onSelectModule('nfce')}
-          className={[
-            'py-1.5 rounded text-xs font-semibold no-drag border',
-            appModule === 'nfce'
-              ? 'border-[var(--teal-dim)] bg-[var(--teal-glow)] text-[var(--teal)]'
-              : 'border-[var(--border)] bg-[var(--bg-raised)] text-[var(--text-secondary)]',
-          ].join(' ')}
-        >
-          NFC-e
-        </button>
-        <button
-          type="button"
-          onClick={() => onSelectModule('nfe')}
-          className={[
-            'py-1.5 rounded text-xs font-semibold no-drag border',
-            appModule === 'nfe'
-              ? 'border-[var(--teal-dim)] bg-[var(--teal-glow)] text-[var(--teal)]'
-              : 'border-[var(--border)] bg-[var(--bg-raised)] text-[var(--text-secondary)]',
-          ].join(' ')}
-        >
-          NF-e
-        </button>
-        <button
-          type="button"
-          onClick={() => onSelectModule('relatorio')}
-          className={[
-            'py-1.5 rounded text-xs font-semibold no-drag border',
-            appModule === 'relatorio'
-              ? 'border-[var(--teal-dim)] bg-[var(--teal-glow)] text-[var(--teal)]'
-              : 'border-[var(--border)] bg-[var(--bg-raised)] text-[var(--text-secondary)]',
-          ].join(' ')}
-        >
-          Relatório
-        </button>
-      </div>
-    </div>
-  )
-}
-
 function SidebarFooter({
   activeTab,
   onSelectTab,
   appModule,
-  onSelectModule,
+  onRequestModulePicker,
   appVersion,
 }: SidebarFooterProps) {
   return (
@@ -136,7 +84,13 @@ function SidebarFooter({
         Manual
       </button>
 
-      <ModuleToggle appModule={appModule} onSelectModule={onSelectModule} />
+      <button
+        type="button"
+        onClick={onRequestModulePicker}
+        className="mb-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded text-sm no-drag border transition-colors border-[var(--border)] bg-[var(--bg-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+      >
+        Trocar módulo
+      </button>
       <ThemeSelector />
 
       <div className="my-3 border-t border-[var(--border)]" />
@@ -147,7 +101,14 @@ function SidebarFooter({
         </p>
       )}
       <p className="text-xs text-[var(--text-muted)]">
-        {appModule === 'nfe' ? 'SAE-NF-e' : appModule === 'relatorio' ? 'SAE-Relatório' : 'SAE-NFC-e'} v2.0.0
+        {appModule === 'nfe'
+          ? 'SAE-NF-e'
+          : appModule === 'relatorio'
+            ? 'SAE-Relatório'
+            : appModule === 'xml-retencao'
+              ? 'SAE-XML Retenção'
+              : 'SAE-NFC-e'}{' '}
+        v2.0.0
       </p>
       <p className="text-xs text-[var(--text-muted)]">SEFAZ-SP · NT 2026</p>
     </div>
@@ -162,7 +123,7 @@ export function AppSidebar({
   certificateReady,
   hasSelectedCertificate,
   appVersion,
-  onSelectModule,
+  onRequestModulePicker,
 }: AppSidebarProps) {
   const tabs = navTabsForModule(appModule)
 
@@ -176,7 +137,13 @@ export function AppSidebar({
             Escrituração Fiscal - eFis
             <br />
             <span className="font-medium text-[var(--text-secondary)]">
-              {appModule === 'nfe' ? 'NF-e' : appModule === 'relatorio' ? 'Relatório' : 'NFC-e'}
+              {appModule === 'nfe'
+                ? 'NF-e'
+                : appModule === 'relatorio'
+                  ? 'Relatório'
+                  : appModule === 'xml-retencao'
+                    ? 'XML Retenção'
+                    : 'NFC-e'}
             </span>
           </span>
         </div>
@@ -214,7 +181,7 @@ export function AppSidebar({
         activeTab={activeTab}
         onSelectTab={onSelectTab}
         appModule={appModule}
-        onSelectModule={onSelectModule}
+        onRequestModulePicker={onRequestModulePicker}
         appVersion={appVersion}
       />
     </aside>

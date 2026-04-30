@@ -144,7 +144,7 @@ interface NfeBlockTimer {
 }
 
 type ThemePreference = 'light' | 'dark' | 'system'
-type AppModule = 'nfce' | 'nfe' | 'relatorio'
+type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao'
 
 declare global {
   interface Window {

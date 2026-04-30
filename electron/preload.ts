@@ -131,7 +131,7 @@ contextBridge.exposeInMainWorld('electron', {
   app: {
     setBusy: (busy: boolean) => ipcRenderer.send('app:set-busy', busy),
     getVersion: () => ipcRenderer.invoke('app:get-version') as Promise<string>,
-    setModulo: (modulo: 'nfce' | 'nfe' | 'relatorio') =>
+    setModulo: (modulo: 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao') =>
       ipcRenderer.invoke('app:set-modulo', modulo) as Promise<boolean>,
     setNfeBlockTimer: (payload: {
       certId: string

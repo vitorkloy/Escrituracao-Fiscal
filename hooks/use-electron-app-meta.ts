@@ -19,5 +19,9 @@ export function useElectronAppMeta(isElectron: boolean) {
     return ok
   }, [isElectron])
 
-  return { appVersion, appModule, persistModuleSelection }
+  const clearModuleSelection = useCallback(() => {
+    setAppModule(null)
+  }, [])
+
+  return { appVersion, appModule, persistModuleSelection, clearModuleSelection }
 }

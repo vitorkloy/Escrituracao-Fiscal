@@ -16,7 +16,7 @@ export default function Home() {
   const { isElectron } = useIsElectron()
   const { toasts, showToast, dismissToast } = useToastStack()
   const { certificateState, setCertificateState } = useCertificatePersistence(isElectron)
-  const { appVersion, appModule, persistModuleSelection } = useElectronAppMeta(isElectron)
+  const { appVersion, appModule, persistModuleSelection, clearModuleSelection } = useElectronAppMeta(isElectron)
   const autoUpdate = useAutoUpdater(isElectron, appVersion, showToast)
 
   const [activeTab, setActiveTab] = useState<AppTab>('config')
@@ -39,10 +39,15 @@ export default function Home() {
         showToast('erro', 'Não foi possível salvar o módulo selecionado.')
         return
       }
-      setActiveTab(modulo === 'relatorio' ? 'relatorio' : 'config')
+      setActiveTab(modulo === 'relatorio' ? 'relatorio' : modulo === 'xml-retencao' ? 'xml-retencao' : 'config')
     },
     [isElectron, persistModuleSelection, showToast],
   )
+
+  const trocarModulo = useCallback(() => {
+    clearModuleSelection()
+    setActiveTab('config')
+  }, [clearModuleSelection])
 
   const cancelarBuscaListagem = useCallback(async () => {
     if (!isElectron || loadingUi.type !== 'listagem' || isCancellingListagem) return
@@ -89,7 +94,7 @@ export default function Home() {
         certificateReady={certificateReady}
         hasSelectedCertificate={hasSelectedCertificate}
         appVersion={appVersion}
-        onSelectModule={(m) => void escolherModulo(m)}
+        onRequestModulePicker={trocarModulo}
       />
 
       <MainPanelArea
