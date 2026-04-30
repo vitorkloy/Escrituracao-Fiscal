@@ -31,6 +31,7 @@ import {
   DIR_COM_RETENCAO,
   DIR_SEM_RETENCAO,
   DIR_INVALIDOS,
+  RETENCAO_PERCENTUAL_NAO_IDENTIFICADO,
   classificarArquivoXmlPorCaminho,
   destinoUnicoNoDir,
 } from './xml-retencao'
@@ -1525,6 +1526,9 @@ interface XmlRetencaoLinhaIpc {
   caminhoOriginal: string
   temRetencao: boolean | null
   pastaDestino: typeof DIR_COM_RETENCAO | typeof DIR_SEM_RETENCAO | typeof DIR_INVALIDOS
+  percentualRetencao?: string
+  percentualPasta?: string
+  origemDeteccao?: 'infCpl' | 'retTrib' | 'retTrib-regex' | 'none'
   caminhoCopiado?: string
   erro?: string
 }
@@ -1566,6 +1570,7 @@ ipcMain.handle('xml-retencao:analisar', async (_e, caminhos: string[]) => {
           caminhoOriginal: caminho,
           temRetencao: null,
           pastaDestino: DIR_INVALIDOS,
+          origemDeteccao: r.origemDeteccao,
           erro: r.erro,
         })
       } else {
@@ -1574,6 +1579,9 @@ ipcMain.handle('xml-retencao:analisar', async (_e, caminhos: string[]) => {
           caminhoOriginal: caminho,
           temRetencao: r.classe === DIR_COM_RETENCAO,
           pastaDestino: r.classe,
+          percentualRetencao: r.percentualRetencao,
+          percentualPasta: r.percentualPasta,
+          origemDeteccao: r.origemDeteccao,
         })
       }
     }
@@ -1600,7 +1608,6 @@ ipcMain.handle('xml-retencao:exportar', async (_e, pastaRaiz: string, caminhos: 
     const dirCom = path.join(absRaiz, DIR_COM_RETENCAO)
     const dirSem = path.join(absRaiz, DIR_SEM_RETENCAO)
     const dirInv = path.join(absRaiz, DIR_INVALIDOS)
-    fs.mkdirSync(dirCom, { recursive: true })
     fs.mkdirSync(dirSem, { recursive: true })
     fs.mkdirSync(dirInv, { recursive: true })
 
@@ -1608,6 +1615,7 @@ ipcMain.handle('xml-retencao:exportar', async (_e, pastaRaiz: string, caminhos: 
     let comRetencao = 0
     let semRetencao = 0
     let invalidos = 0
+    const gruposRetencao: Record<string, number> = {}
 
     for (const caminho of lista) {
       const nome = path.basename(caminho)
@@ -1623,6 +1631,7 @@ ipcMain.handle('xml-retencao:exportar', async (_e, pastaRaiz: string, caminhos: 
             caminhoOriginal: caminho,
             temRetencao: null,
             pastaDestino: DIR_INVALIDOS,
+            origemDeteccao: r.origemDeteccao,
             erro: mensagemErro(e),
           })
           continue
@@ -1632,13 +1641,21 @@ ipcMain.handle('xml-retencao:exportar', async (_e, pastaRaiz: string, caminhos: 
           caminhoOriginal: caminho,
           temRetencao: null,
           pastaDestino: DIR_INVALIDOS,
+          origemDeteccao: r.origemDeteccao,
           caminhoCopiado: dest,
           erro: r.erro,
         })
         continue
       }
 
-      const baseDir = r.classe === DIR_COM_RETENCAO ? dirCom : dirSem
+      let baseDir = dirSem
+      let percentualPasta = r.percentualPasta
+      if (r.classe === DIR_COM_RETENCAO) {
+        const pastaPercentual = (percentualPasta || RETENCAO_PERCENTUAL_NAO_IDENTIFICADO).trim()
+        percentualPasta = pastaPercentual
+        baseDir = path.join(dirCom, pastaPercentual)
+        fs.mkdirSync(baseDir, { recursive: true })
+      }
       const dest = destinoUnicoNoDir(baseDir, nome)
       try {
         fs.copyFileSync(caminho, dest)
@@ -1648,18 +1665,28 @@ ipcMain.handle('xml-retencao:exportar', async (_e, pastaRaiz: string, caminhos: 
           caminhoOriginal: caminho,
           temRetencao: r.classe === DIR_COM_RETENCAO,
           pastaDestino: r.classe,
+          percentualRetencao: r.percentualRetencao,
+          percentualPasta,
+          origemDeteccao: r.origemDeteccao,
           erro: mensagemErro(e),
         })
         continue
       }
       if (r.classe === DIR_COM_RETENCAO) comRetencao++
       else semRetencao++
+      if (r.classe === DIR_COM_RETENCAO) {
+        const chaveGrupo = percentualPasta || RETENCAO_PERCENTUAL_NAO_IDENTIFICADO
+        gruposRetencao[chaveGrupo] = (gruposRetencao[chaveGrupo] ?? 0) + 1
+      }
 
       linhas.push({
         nome,
         caminhoOriginal: caminho,
         temRetencao: r.classe === DIR_COM_RETENCAO,
         pastaDestino: r.classe,
+        percentualRetencao: r.percentualRetencao,
+        percentualPasta,
+        origemDeteccao: r.origemDeteccao,
         caminhoCopiado: dest,
       })
     }
@@ -1667,7 +1694,7 @@ ipcMain.handle('xml-retencao:exportar', async (_e, pastaRaiz: string, caminhos: 
     return {
       ok: true,
       pastaRaiz: absRaiz,
-      resumo: { comRetencao, semRetencao, invalidos },
+      resumo: { comRetencao, semRetencao, invalidos, gruposRetencao },
       linhas,
     }
   } catch (err: unknown) {

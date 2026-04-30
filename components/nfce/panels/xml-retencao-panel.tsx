@@ -102,12 +102,19 @@ export function XmlRetencaoPanel({ showToast }: XmlRetencaoPanelProps) {
         return
       }
       const res = resp.resumo
+      const gruposOrdenados = Object.entries(res?.gruposRetencao ?? {})
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+      const resumoGrupos =
+        gruposOrdenados.length > 0
+          ? ` Grupos: ${gruposOrdenados.map(([k, v]) => `${k} (${v})`).join(', ')}.`
+          : ''
       showToast(
         'ok',
         res
           ? `Copiados: ${res.comRetencao} com retenção, ${res.semRetencao} sem${
               res.invalidos > 0 ? `, ${res.invalidos} em invalidos` : ''
-            }. Subpastas em: ${resp.pastaRaiz ?? pastaDestino}`
+            }. Subpastas em: ${resp.pastaRaiz ?? pastaDestino}.${resumoGrupos}`
           : 'Exportação concluída.',
       )
     } catch (err) {
@@ -122,7 +129,10 @@ export function XmlRetencaoPanel({ showToast }: XmlRetencaoPanelProps) {
   const invCount = linhas.filter((l) => l.temRetencao === null).length
 
   function rotuloLinha(row: XmlRetencaoLinha): string {
-    if (row.temRetencao === true) return 'Com retenção'
+    if (row.temRetencao === true) {
+      const pct = row.percentualRetencao?.trim()
+      return pct ? `Com retenção (${pct}%)` : 'Com retenção (percentual não identificado)'
+    }
     if (row.temRetencao === false) return 'Sem retenção'
     return row.erro ?? 'Inválido / não reconhecido'
   }
@@ -141,10 +151,10 @@ export function XmlRetencaoPanel({ showToast }: XmlRetencaoPanelProps) {
         </h2>
 
         <p className="text-sm text-[var(--text-secondary)] mb-4">
-          Anexe arquivos de NF-e / NFC-e. A verificação usa o grupo{' '}
-          <span className="font-mono text-[11px]">total.retTrib</span> no total da nota (valores de retenção). Na
-          exportação são criadas <span className="font-mono text-[11px]">com_retencao</span> e{' '}
-          <span className="font-mono text-[11px]">sem_retencao</span> dentro da pasta escolhida.
+          Anexe arquivos de NF-e / NFC-e. A verificação prioriza o campo{' '}
+          <span className="font-mono text-[11px]">infCpl</span> (ex.: RETENCAO DE 1,20%) e agrupa retenções por
+          percentual em <span className="font-mono text-[11px]">retencao/1,20_porcento</span>. XML sem retenção vai
+          para <span className="font-mono text-[11px]">sem_retencao</span>.
         </p>
 
         <div className="flex flex-wrap gap-3">
@@ -254,7 +264,8 @@ export function XmlRetencaoPanel({ showToast }: XmlRetencaoPanelProps) {
 
         <p className="mt-4 text-[11px] text-[var(--text-muted)]">
           Exportação cria também <span className="font-mono text-[11px]">invalidos</span> quando o arquivo não é um
-          XML de NF-e/NFC-e válido ou há erro de leitura.
+          XML de NF-e/NFC-e válido ou há erro de leitura. Se houver retenção sem percentual explícito, o destino é{' '}
+          <span className="font-mono text-[11px]">retencao/percentual_nao_identificado</span>.
         </p>
       </div>
     </div>

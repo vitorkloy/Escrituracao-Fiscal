@@ -74,7 +74,10 @@ export interface XmlRetencaoLinha {
   nome: string
   caminhoOriginal: string
   temRetencao: boolean | null
-  pastaDestino: 'com_retencao' | 'sem_retencao' | 'invalidos'
+  pastaDestino: 'retencao' | 'sem_retencao' | 'invalidos'
+  percentualRetencao?: string
+  percentualPasta?: string
+  origemDeteccao?: 'infCpl' | 'retTrib' | 'retTrib-regex' | 'none'
   caminhoCopiado?: string
   erro?: string
 }

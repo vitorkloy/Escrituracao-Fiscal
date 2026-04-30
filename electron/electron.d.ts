@@ -118,13 +118,16 @@ interface NfeXmlSalvoInfo {
   mes: string
 }
 
-type XmlRetencaoPastaNome = 'com_retencao' | 'sem_retencao' | 'invalidos'
+type XmlRetencaoPastaNome = 'retencao' | 'sem_retencao' | 'invalidos'
 
 interface XmlRetencaoLinha {
   nome: string
   caminhoOriginal: string
   temRetencao: boolean | null
   pastaDestino: XmlRetencaoPastaNome
+  percentualRetencao?: string
+  percentualPasta?: string
+  origemDeteccao?: 'infCpl' | 'retTrib' | 'retTrib-regex' | 'none'
   caminhoCopiado?: string
   erro?: string
 }
@@ -258,7 +261,12 @@ declare global {
         exportar(pastaRaiz: string, caminhos: string[]): Promise<{
           ok: boolean
           pastaRaiz?: string
-          resumo?: { comRetencao: number; semRetencao: number; invalidos: number }
+          resumo?: {
+            comRetencao: number
+            semRetencao: number
+            invalidos: number
+            gruposRetencao: Record<string, number>
+          }
           linhas?: XmlRetencaoLinha[]
           xMotivo?: string
         }>
