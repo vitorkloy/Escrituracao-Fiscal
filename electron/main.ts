@@ -1533,6 +1533,105 @@ interface XmlRetencaoLinhaIpc {
   erro?: string
 }
 
+interface XmlRetencaoRelatorioLinha {
+  chave: string
+  cnpj: string
+  valor: number | null
+  retencao: string
+}
+
+function listarXmlsRecursivoComLimite(dirRaiz: string, limite: number): string[] {
+  const out: string[] = []
+  const fila: string[] = [dirRaiz]
+  while (fila.length > 0 && out.length < limite) {
+    const atual = fila.shift() as string
+    let entries: fs.Dirent[] = []
+    try {
+      entries = fs.readdirSync(atual, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const ent of entries) {
+      const full = path.join(atual, ent.name)
+      if (ent.isDirectory()) {
+        fila.push(full)
+        continue
+      }
+      if (!ent.isFile()) continue
+      if (!/\.xml$/i.test(ent.name)) continue
+      out.push(full)
+      if (out.length >= limite) break
+    }
+  }
+  return out
+}
+
+function extrairChaveCnpjValorDoXml(xmlStr: string): { chave: string; cnpj: string; valor: number | null } {
+  const chave = xmlStr.match(/<infNFe[^>]*Id="NFe(\d{44})"/)?.[1]?.trim() ?? ''
+  const cnpjEmit = xmlStr.match(/<emit>[\s\S]*?<CNPJ>([^<]+)<\/CNPJ>/)?.[1]?.trim() ?? ''
+  const cnpjDest = xmlStr.match(/<dest>[\s\S]*?<CNPJ>([^<]+)<\/CNPJ>/)?.[1]?.trim() ?? ''
+  const cnpj = (cnpjEmit || cnpjDest).replace(/\D/g, '')
+  const vRaw = xmlStr.match(/<vNF>([^<]+)<\/vNF>/)?.[1]?.trim() ?? ''
+  const valor = parseValorMonetarioRelatorio(vRaw)
+  return { chave, cnpj, valor }
+}
+
+async function gerarRetencaoXlsxBuffer(
+  linhas: XmlRetencaoRelatorioLinha[],
+  cabecalhoEmpresa?: CabecalhoEmpresaRelatorio
+): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook()
+  const ws = wb.addWorksheet('Retenção XML', {
+    views: [{ state: 'frozen', ySplit: 2 }],
+  })
+
+  const nomeEmpresa = (cabecalhoEmpresa?.nome ?? '').trim() || '—'
+  const cnpjFmt = formatarCnpjRelatorioDigitos(cabecalhoEmpresa?.cnpj)
+  ws.mergeCells('A1:D1')
+  ws.getCell('A1').value = `EMPRESA : ${nomeEmpresa}    |    CNPJ ${cnpjFmt}`
+  ws.getCell('A1').font = { bold: true, color: { argb: 'FFB91C1C' }, size: 12 }
+
+  const headerRow = ws.addRow(['Chave da nota', 'CNPJ', 'Valor', 'Retenção'])
+  headerRow.font = { bold: true, color: { argb: 'FF111827' } }
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFE5E7EB' },
+  }
+  headerRow.border = {
+    top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+    left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+    bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+    right: { style: 'thin', color: { argb: 'FFD1D5DB' } },
+  }
+
+  let somaValores = 0
+  for (const l of linhas) {
+    if (typeof l.valor === 'number') somaValores += l.valor
+    const row = ws.addRow([l.chave, l.cnpj, l.valor ?? '', l.retencao])
+    row.getCell(1).numFmt = '@'
+    row.getCell(2).numFmt = '@'
+    row.getCell(3).numFmt = '#,##0.00'
+    row.getCell(4).numFmt = '@'
+  }
+
+  if (linhas.length > 0) {
+    const totalRow = ws.addRow(['', 'Total geral', somaValores, ''])
+    totalRow.getCell(2).font = { bold: true }
+    totalRow.getCell(3).font = { bold: true }
+    totalRow.getCell(3).numFmt = '#,##0.00'
+  }
+
+  ws.columns = [{ width: 50 }, { width: 22 }, { width: 16 }, { width: 28 }]
+  ws.autoFilter = {
+    from: 'A2',
+    to: 'D2',
+  }
+
+  const buffer = await wb.xlsx.writeBuffer()
+  return Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer)
+}
+
 ipcMain.handle('xml-retencao:selecionar-xmls', async () => {
   try {
     const win = getWindow()
@@ -1546,6 +1645,21 @@ ipcMain.handle('xml-retencao:selecionar-xmls', async () => {
     })
     if (result.canceled || result.filePaths.length === 0) return []
     return result.filePaths.slice(0, XML_RET_ARQUIVO_MAX)
+  } catch {
+    return []
+  }
+})
+
+ipcMain.handle('xml-retencao:selecionar-pasta-com-xmls', async () => {
+  try {
+    const win = getWindow()
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Selecionar pasta com XMLs',
+      properties: ['openDirectory', 'createDirectory'],
+    })
+    if (result.canceled || result.filePaths.length === 0) return []
+    const raiz = result.filePaths[0]
+    return listarXmlsRecursivoComLimite(raiz, XML_RET_ARQUIVO_MAX)
   } catch {
     return []
   }
@@ -1699,6 +1813,72 @@ ipcMain.handle('xml-retencao:exportar', async (_e, pastaRaiz: string, caminhos: 
     }
   } catch (err: unknown) {
     return { ok: false, xMotivo: mensagemErro(err), linhas: [] }
+  }
+})
+
+ipcMain.handle('xml-retencao:gerar-relatorio-xlsx', async (_e, pastaSaida: string, caminhos: string[]) => {
+  try {
+    const raiz = String(pastaSaida ?? '').trim()
+    if (!raiz) throw new Error('Pasta de destino não informada.')
+    const absRaiz = path.resolve(raiz)
+    if (!fs.existsSync(absRaiz) || !fs.statSync(absRaiz).isDirectory()) {
+      throw new Error('Pasta de destino não encontrada.')
+    }
+    const lista = Array.isArray(caminhos) ? caminhos.filter(Boolean) : []
+    if (lista.length === 0) throw new Error('Nenhum XML informado para o relatório.')
+    if (lista.length > XML_RET_ARQUIVO_MAX) {
+      throw new Error(`Limite de ${XML_RET_ARQUIVO_MAX} arquivos por operação.`)
+    }
+
+    const linhas: XmlRetencaoRelatorioLinha[] = []
+    let cabecalhoEmpresa: CabecalhoEmpresaRelatorio | undefined
+    let falhas = 0
+
+    for (const caminho of lista) {
+      let xml = ''
+      try {
+        xml = fs.readFileSync(caminho, 'utf-8')
+      } catch {
+        falhas++
+        continue
+      }
+      const cls = classificarArquivoXmlPorCaminho(caminho)
+      if (cls.classe === DIR_INVALIDOS) {
+        falhas++
+        continue
+      }
+      const meta = extrairChaveCnpjValorDoXml(xml)
+      if (!cabecalhoEmpresa || !cabecalhoEmpresa.cnpj) {
+        const emit = extrairEmitenteDoNfceXml(xml)
+        if (emit.nome || emit.cnpj) cabecalhoEmpresa = emit
+      }
+      const retencao =
+        cls.classe === DIR_COM_RETENCAO
+          ? cls.percentualRetencao
+            ? `${cls.percentualRetencao}%`
+            : 'percentual_nao_identificado'
+          : 'sem_retencao'
+
+      linhas.push({
+        chave: meta.chave || path.basename(caminho),
+        cnpj: meta.cnpj,
+        valor: meta.valor,
+        retencao,
+      })
+    }
+
+    if (linhas.length === 0) throw new Error('Nenhuma linha válida para gerar o relatório.')
+
+    const xlsx = await gerarRetencaoXlsxBuffer(linhas, cabecalhoEmpresa)
+    const nomeArquivo = limparNomeArquivo(
+      `${cabecalhoEmpresa?.nome ?? 'empresa-sem-nome'} - ${cabecalhoEmpresa?.cnpj ?? 'sem-cnpj'} - retencao.xlsx`
+    )
+    const outPath = path.join(absRaiz, nomeArquivo)
+    fs.writeFileSync(outPath, xlsx)
+
+    return { ok: true, arquivo: outPath, gerados: linhas.length, falhas }
+  } catch (err: unknown) {
+    return { ok: false, xMotivo: mensagemErro(err) }
   }
 })
 

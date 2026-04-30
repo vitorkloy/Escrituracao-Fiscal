@@ -122,10 +122,14 @@ contextBridge.exposeInMainWorld('electron', {
   xmlRetencao: {
     selecionarXmls: () =>
       ipcRenderer.invoke('xml-retencao:selecionar-xmls') as Promise<string[]>,
+    selecionarPastaComXmls: () =>
+      ipcRenderer.invoke('xml-retencao:selecionar-pasta-com-xmls') as Promise<string[]>,
     analisar: (caminhos: string[]) =>
       ipcRenderer.invoke('xml-retencao:analisar', caminhos),
     exportar: (pastaRaiz: string, caminhos: string[]) =>
       ipcRenderer.invoke('xml-retencao:exportar', pastaRaiz, caminhos),
+    gerarRelatorioXlsx: (pastaSaida: string, caminhos: string[]) =>
+      ipcRenderer.invoke('xml-retencao:gerar-relatorio-xlsx', pastaSaida, caminhos),
   },
 
   app: {

@@ -257,6 +257,7 @@ declare global {
       }
       xmlRetencao: {
         selecionarXmls(): Promise<string[]>
+        selecionarPastaComXmls(): Promise<string[]>
         analisar(caminhos: string[]): Promise<{ ok: boolean; linhas?: XmlRetencaoLinha[]; xMotivo?: string }>
         exportar(pastaRaiz: string, caminhos: string[]): Promise<{
           ok: boolean
@@ -268,6 +269,13 @@ declare global {
             gruposRetencao: Record<string, number>
           }
           linhas?: XmlRetencaoLinha[]
+          xMotivo?: string
+        }>
+        gerarRelatorioXlsx(pastaSaida: string, caminhos: string[]): Promise<{
+          ok: boolean
+          arquivo?: string
+          gerados?: number
+          falhas?: number
           xMotivo?: string
         }>
       }

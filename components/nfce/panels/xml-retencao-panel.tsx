@@ -12,9 +12,9 @@ export function XmlRetencaoPanel({ showToast }: XmlRetencaoPanelProps) {
   const { isElectron } = useIsElectron()
   const [caminhos, setCaminhos] = useState<string[]>([])
   const [linhas, setLinhas] = useState<XmlRetencaoLinha[]>([])
-  const [pastaDestino, setPastaDestino] = useState('')
   const [isAnalisando, setIsAnalisando] = useState(false)
   const [isExportando, setIsExportando] = useState(false)
+  const [isGerandoRelatorio, setIsGerandoRelatorio] = useState(false)
 
   const analisarLista = useCallback(
     async (lista: string[]) => {
@@ -45,7 +45,7 @@ export function XmlRetencaoPanel({ showToast }: XmlRetencaoPanelProps) {
     [isElectron, showToast],
   )
 
-  async function adicionarXmls() {
+  async function adicionarXmlsArquivos() {
     if (!isElectron) {
       showToast('erro', 'Disponível apenas no aplicativo desktop.')
       return
@@ -65,20 +65,29 @@ export function XmlRetencaoPanel({ showToast }: XmlRetencaoPanelProps) {
     }
   }
 
+  async function adicionarXmlsPasta() {
+    if (!isElectron) {
+      showToast('erro', 'Disponível apenas no aplicativo desktop.')
+      return
+    }
+    try {
+      const selecionados = await window.electron.xmlRetencao.selecionarPastaComXmls()
+      if (selecionados.length === 0) return
+      const mesclado = [...new Set([...caminhos, ...selecionados])]
+      if (mesclado.length > 280) {
+        showToast('info', `Limite de 280 arquivos. Mantidos os primeiros 280 na lista.`)
+        mesclado.length = 280
+      }
+      setCaminhos(mesclado)
+      await analisarLista(mesclado)
+    } catch (err) {
+      showToast('erro', err instanceof Error ? err.message : 'Erro ao selecionar pasta.')
+    }
+  }
+
   function limparLista() {
     setCaminhos([])
     setLinhas([])
-    setPastaDestino('')
-  }
-
-  async function escolherPastaDestino() {
-    if (!isElectron) return
-    try {
-      const pasta = await window.electron.fs.selecionarPasta()
-      if (pasta) setPastaDestino(pasta)
-    } catch (err) {
-      showToast('erro', err instanceof Error ? err.message : 'Erro ao escolher pasta.')
-    }
   }
 
   async function exportarPastas() {
@@ -90,10 +99,8 @@ export function XmlRetencaoPanel({ showToast }: XmlRetencaoPanelProps) {
       showToast('erro', 'Adicione pelo menos um XML.')
       return
     }
-    if (!pastaDestino) {
-      showToast('erro', 'Escolha a pasta onde serão criadas as subpastas.')
-      return
-    }
+    const pastaDestino = await window.electron.fs.selecionarPasta()
+    if (!pastaDestino) return
     setIsExportando(true)
     try {
       const resp = await window.electron.xmlRetencao.exportar(pastaDestino, caminhos)
@@ -121,6 +128,35 @@ export function XmlRetencaoPanel({ showToast }: XmlRetencaoPanelProps) {
       showToast('erro', err instanceof Error ? err.message : 'Erro ao exportar.')
     } finally {
       setIsExportando(false)
+    }
+  }
+
+  async function gerarRelatorioXlsx() {
+    if (!isElectron) {
+      showToast('erro', 'Disponível apenas no aplicativo desktop.')
+      return
+    }
+    if (caminhos.length === 0) {
+      showToast('erro', 'Adicione pelo menos um XML.')
+      return
+    }
+    const pastaSaida = await window.electron.fs.selecionarPasta()
+    if (!pastaSaida) return
+    setIsGerandoRelatorio(true)
+    try {
+      const resp = await window.electron.xmlRetencao.gerarRelatorioXlsx(pastaSaida, caminhos)
+      if (!resp.ok) {
+        showToast('erro', resp.xMotivo ?? 'Falha ao gerar relatório.')
+        return
+      }
+      showToast(
+        'ok',
+        `Relatório gerado (${resp.gerados ?? 0} linhas, ${resp.falhas ?? 0} falhas): ${resp.arquivo ?? 'arquivo salvo'}.`,
+      )
+    } catch (err) {
+      showToast('erro', err instanceof Error ? err.message : 'Erro ao gerar relatório.')
+    } finally {
+      setIsGerandoRelatorio(false)
     }
   }
 
@@ -160,47 +196,53 @@ export function XmlRetencaoPanel({ showToast }: XmlRetencaoPanelProps) {
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={() => void adicionarXmls()}
+            onClick={() => void adicionarXmlsArquivos()}
             disabled={isAnalisando}
             className="py-2.5 px-4 rounded text-sm font-semibold no-drag bg-[var(--bg-raised)] border border-[var(--border)] text-[var(--text-primary)] disabled:opacity-60"
           >
-            Adicionar XMLs
+            Adicionar XMLs (arquivos)
+          </button>
+          <button
+            type="button"
+            onClick={() => void adicionarXmlsPasta()}
+            disabled={isAnalisando}
+            className="py-2.5 px-4 rounded text-sm font-semibold no-drag bg-[var(--bg-raised)] border border-[var(--border)] text-[var(--text-primary)] disabled:opacity-60"
+          >
+            Adicionar pasta de XMLs
           </button>
           <button
             type="button"
             onClick={limparLista}
-            disabled={(caminhos.length === 0 && !pastaDestino) || isExportando}
+            disabled={caminhos.length === 0 || isExportando || isGerandoRelatorio}
             className="py-2.5 px-4 rounded text-sm font-semibold no-drag bg-transparent border border-[var(--border)] text-[var(--text-secondary)] disabled:opacity-40"
           >
             Limpar
           </button>
           <button
             type="button"
-            onClick={() => void escolherPastaDestino()}
-            disabled={isExportando}
-            className="py-2.5 px-4 rounded text-sm font-semibold no-drag bg-[var(--bg-raised)] border border-[var(--border)] text-[var(--text-primary)]"
+            onClick={() => void exportarPastas()}
+            disabled={isExportando || isGerandoRelatorio || caminhos.length === 0 || isAnalisando}
+            className="flex items-center justify-center py-2.5 px-5 rounded text-sm font-semibold no-drag bg-[var(--teal-glow)] border border-[var(--teal-dim)] text-[var(--teal)] disabled:opacity-60"
           >
-            {pastaDestino ? 'Alterar pasta de destino' : 'Escolher pasta destino'}
+            {isExportando ? 'Exportando…' : 'Exportar (escolher pasta)'}
           </button>
           <button
             type="button"
-            onClick={() => void exportarPastas()}
-            disabled={
-              isExportando || caminhos.length === 0 || !pastaDestino || isAnalisando
-            }
-            className="flex items-center justify-center py-2.5 px-5 rounded text-sm font-semibold no-drag bg-[var(--teal-glow)] border border-[var(--teal-dim)] text-[var(--teal)] disabled:opacity-60"
+            onClick={() => void gerarRelatorioXlsx()}
+            disabled={isGerandoRelatorio || isExportando || caminhos.length === 0 || isAnalisando}
+            className="flex items-center justify-center py-2.5 px-5 rounded text-sm font-semibold no-drag bg-[var(--bg-raised)] border border-[var(--border)] text-[var(--text-primary)] disabled:opacity-60"
           >
-            {isExportando ? 'Copiando…' : 'Exportar para pastas'}
+            {isGerandoRelatorio ? 'Gerando XLSX…' : 'Gerar relatório XLSX'}
           </button>
         </div>
 
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-3">
             <p className="text-[10px] uppercase tracking-widest text-[var(--text-muted)] mb-1">
-              Pasta de destino
+              Exportação
             </p>
-            <p className="text-xs font-mono truncate text-[var(--text-primary)]" title={pastaDestino || '—'}>
-              {pastaDestino || '—'}
+            <p className="text-xs text-[var(--text-secondary)]">
+              A pasta é escolhida no clique de <span className="font-mono">Exportar</span>.
             </p>
           </div>
           <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-3">
@@ -232,7 +274,7 @@ export function XmlRetencaoPanel({ showToast }: XmlRetencaoPanelProps) {
           <p className="text-sm text-[var(--text-muted)]">Use o aplicativo desktop para esta funcionalidade.</p>
         ) : caminhos.length === 0 ? (
           <p className="text-sm text-[var(--text-muted)]">
-            Adicione arquivos XML (botão «Adicionar XMLs») para pré-visualizar a classificação.
+            Adicione XMLs por arquivos ou por pasta para pré-visualizar a classificação.
           </p>
         ) : isAnalisando && linhas.length === 0 ? (
           <p className="text-sm text-[var(--text-muted)]">Analisando XMLs…</p>
