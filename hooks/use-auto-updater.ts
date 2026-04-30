@@ -14,6 +14,31 @@ function sanitizeUpdaterMessage(raw: string): string {
   return linhas.join(' ').replace(/\s+/g, ' ').trim()
 }
 
+function compareVersions(a: string, b: string): number {
+  const ap = String(a ?? '')
+    .replace(/^v/i, '')
+    .split(/[.-]/)
+    .map((p) => Number.parseInt(p.replace(/\D/g, ''), 10) || 0)
+  const bp = String(b ?? '')
+    .replace(/^v/i, '')
+    .split(/[.-]/)
+    .map((p) => Number.parseInt(p.replace(/\D/g, ''), 10) || 0)
+
+  const max = Math.max(ap.length, bp.length)
+  for (let i = 0; i < max; i++) {
+    const av = ap[i] ?? 0
+    const bv = bp[i] ?? 0
+    if (av > bv) return 1
+    if (av < bv) return -1
+  }
+  return 0
+}
+
+function isUpdateNewer(remoteVersion: string, currentVersion: string): boolean {
+  if (!remoteVersion.trim() || !currentVersion.trim()) return false
+  return compareVersions(remoteVersion, currentVersion) > 0
+}
+
 export function useAutoUpdater(
   isElectron: boolean,
   currentVersion: string,
@@ -30,6 +55,7 @@ export function useAutoUpdater(
     const u = window.electron.updater
 
     const offAvail = u.onUpdateAvailable((info) => {
+      if (!isUpdateNewer(info.version, currentVersion)) return
       setRemoteVersion(info.version)
       setPhase('available')
       setOpen(true)
@@ -59,7 +85,7 @@ export function useAutoUpdater(
     void u.check().then((resp) => {
       if (!resp.ok || resp.skipped) return
       const v = resp.updateInfo?.version?.trim()
-      if (!v) return
+      if (!v || !isUpdateNewer(v, currentVersion)) return
       setRemoteVersion(v)
       setPhase('available')
       setOpen(true)
@@ -73,7 +99,7 @@ export function useAutoUpdater(
       offDone()
       offErr()
     }
-  }, [isElectron, showToast])
+  }, [currentVersion, isElectron, showToast])
 
   const dismiss = useCallback(() => {
     setOpen(false)
