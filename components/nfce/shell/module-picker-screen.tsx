@@ -20,9 +20,9 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
           <button
             type="button"
             onClick={() => onSelectModule('nfce')}
-            className="rounded border border-[var(--teal-dim)] bg-[var(--teal-glow)] p-4 text-left no-drag"
+            className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-4 text-left no-drag transition-colors hover:border-[var(--teal-dim)] hover:bg-[var(--bg-surface)]"
           >
-            <div className="flex items-center gap-2 mb-2 text-[var(--teal)]">
+            <div className="flex items-center gap-2 mb-2 text-[var(--text-primary)]">
               <IonIcon icon={receiptOutline} className="w-5 h-5" />
               <span className="font-semibold">NFC-e</span>
             </div>
@@ -31,7 +31,7 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
           <button
             type="button"
             onClick={() => onSelectModule('nfe')}
-            className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-4 text-left no-drag"
+            className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-4 text-left no-drag transition-colors hover:border-[var(--teal-dim)] hover:bg-[var(--bg-surface)]"
           >
             <div className="flex items-center gap-2 mb-2 text-[var(--text-primary)]">
               <IonIcon icon={documentTextOutline} className="w-5 h-5" />
@@ -42,7 +42,7 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
           <button
             type="button"
             onClick={() => onSelectModule('cte')}
-            className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-4 text-left no-drag"
+            className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-4 text-left no-drag transition-colors hover:border-[var(--teal-dim)] hover:bg-[var(--bg-surface)]"
           >
             <div className="flex items-center gap-2 mb-2 text-[var(--text-primary)]">
               <IonIcon icon={busOutline} className="w-5 h-5" />
@@ -53,7 +53,7 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
           <button
             type="button"
             onClick={() => onSelectModule('relatorio')}
-            className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-4 text-left no-drag"
+            className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-4 text-left no-drag transition-colors hover:border-[var(--teal-dim)] hover:bg-[var(--bg-surface)]"
           >
             <div className="flex items-center gap-2 mb-2 text-[var(--text-primary)]">
               <IonIcon icon={statsChartOutline} className="w-5 h-5" />
@@ -64,7 +64,7 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
           <button
             type="button"
             onClick={() => onSelectModule('xml-retencao')}
-            className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-4 text-left no-drag"
+            className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-4 text-left no-drag transition-colors hover:border-[var(--teal-dim)] hover:bg-[var(--bg-surface)]"
           >
             <div className="flex items-center gap-2 mb-2 text-[var(--text-primary)]">
               <IonIcon icon={funnelOutline} className="w-5 h-5" />
