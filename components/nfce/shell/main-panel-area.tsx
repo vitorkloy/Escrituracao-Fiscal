@@ -7,6 +7,7 @@ import { ManualPanel } from '@/components/nfce/panels/manual-panel'
 import { NfeDistribuicaoDfePanel } from '@/components/nfce/panels/nfe-distribuicao-dfe-panel'
 import { NfeRecepcaoEventoPanel } from '@/components/nfce/panels/nfe-recepcao-evento-panel'
 import { CteConsultaPanel } from '@/components/nfce/panels/cte-consulta-panel'
+import { CteDistribuicaoDfePanel } from '@/components/nfce/panels/cte-distribuicao-dfe-panel'
 import { RelatorioPanel } from '@/components/nfce/panels/relatorio-panel'
 import { XmlRetencaoPanel } from '@/components/nfce/panels/xml-retencao-panel'
 import type {
@@ -94,6 +95,15 @@ export function MainPanelArea({
         {activeTab === 'nfe-recepcao-evento' && appModule === 'nfe' && (
           <div className="h-full flex flex-col overflow-hidden">
             <NfeRecepcaoEventoPanel
+              certificateState={certificateState}
+              showToast={showToast}
+              onLoadingStateChange={onLoadingStateChange}
+            />
+          </div>
+        )}
+        {activeTab === 'cte-dist-dfe' && appModule === 'cte' && (
+          <div className="h-full flex flex-col overflow-hidden">
+            <CteDistribuicaoDfePanel
               certificateState={certificateState}
               showToast={showToast}
               onLoadingStateChange={onLoadingStateChange}

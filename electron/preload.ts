@@ -110,6 +110,42 @@ contextBridge.exposeInMainWorld('electron', {
       config: ConfigCert & { thumbprint?: string },
       opts: { chCTe: string; tpAmb: '1' | '2'; ambienteEndpoint: 'producao' | 'homologacao' }
     ) => ipcRenderer.invoke('cte:consulta-situacao', config, opts),
+    distribuicaoDfe: (config: ConfigCert & { thumbprint?: string }, cteDadosMsgXml: string) =>
+      ipcRenderer.invoke('cte:distribuicao-dfe', config, cteDadosMsgXml),
+    distDfeEstado: (pastaRaiz: string, cnpj14: string) =>
+      ipcRenderer.invoke('cte:dist-dfe-estado', pastaRaiz, cnpj14),
+    syncDistDfe: (
+      config: ConfigCert & { thumbprint?: string },
+      opts: {
+        pastaRaiz: string
+        cnpj14: string
+        cUFAutor: string
+        reiniciarNsu: boolean
+        filtroPapel?: 'todos' | 'emitente' | 'destinatario'
+      }
+    ) => ipcRenderer.invoke('cte:sync-dist-dfe', config, opts),
+    listarXmlsSalvos: (
+      pastaRaiz: string,
+      cnpj14: string,
+      filtro?: { ano?: string; mes?: string }
+    ) => ipcRenderer.invoke('cte:listar-xmls-salvos', pastaRaiz, cnpj14, filtro),
+    onSyncDistProgress: (cb: (p: {
+      tipo: 'lote' | 'concluido' | 'erro'
+      ultNSU?: string
+      maxNSU?: string
+      cStat?: string
+      loteSalvos?: number
+      loteIgnorados?: number
+      loteFiltrados?: number
+      totalSalvos?: number
+      totalIgnorados?: number
+      totalFiltrados?: number
+      mensagem?: string
+    }) => void) => {
+      const fn = (_e: Electron.IpcRendererEvent, p: Parameters<typeof cb>[0]) => cb(p)
+      ipcRenderer.on('cte:sync-dist-progress', fn)
+      return () => ipcRenderer.removeListener('cte:sync-dist-progress', fn)
+    },
   },
 
   fs: {

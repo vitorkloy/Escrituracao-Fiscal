@@ -133,6 +133,37 @@ interface NfeXmlSalvoInfo {
   mes: string
 }
 
+interface CteDistDfeSyncProgresso {
+  tipo: 'lote' | 'concluido' | 'erro'
+  ultNSU?: string
+  maxNSU?: string
+  cStat?: string
+  loteSalvos?: number
+  loteIgnorados?: number
+  loteFiltrados?: number
+  totalSalvos?: number
+  totalIgnorados?: number
+  totalFiltrados?: number
+  mensagem?: string
+}
+
+interface CteDistDfeSyncResultado {
+  ok: boolean
+  totalSalvos: number
+  totalIgnorados: number
+  totalFiltrados: number
+  ultNSU: string
+  lotes: number
+  xMotivo?: string
+}
+
+interface CteXmlSalvoInfo {
+  chave: string
+  caminho: string
+  ano: string
+  mes: string
+}
+
 type XmlRetencaoPastaNome = 'retencao' | 'sem_retencao' | 'invalidos'
 
 interface XmlRetencaoLinha {
@@ -248,6 +279,24 @@ declare global {
           config: SefazConfig,
           opts: { chCTe: string; tpAmb: '1' | '2'; ambienteEndpoint: 'producao' | 'homologacao' }
         ): Promise<CteConsultaSituacaoResultado>
+        distribuicaoDfe(config: SefazConfig, cteDadosMsgXml: string): Promise<NfeSoapResultado>
+        distDfeEstado(pastaRaiz: string, cnpj14: string): Promise<{ ok: boolean; ultNSU?: string; xMotivo?: string }>
+        syncDistDfe(
+          config: SefazConfig,
+          opts: {
+            pastaRaiz: string
+            cnpj14: string
+            cUFAutor: string
+            reiniciarNsu: boolean
+            filtroPapel?: NfeDistDfeFiltroPapel
+          }
+        ): Promise<CteDistDfeSyncResultado>
+        listarXmlsSalvos(
+          pastaRaiz: string,
+          cnpj14: string,
+          filtro?: { ano?: string; mes?: string }
+        ): Promise<{ ok: boolean; arquivos?: CteXmlSalvoInfo[]; total?: number; xMotivo?: string }>
+        onSyncDistProgress(cb: (p: CteDistDfeSyncProgresso) => void): () => void
       }
       fs: {
         selecionarPasta(): Promise<string | null>

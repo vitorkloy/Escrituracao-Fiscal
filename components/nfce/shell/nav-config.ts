@@ -25,6 +25,7 @@ export const NFE_NAV_TABS: NavTabConfig[] = [
 
 export const CTE_NAV_TABS: NavTabConfig[] = [
   { id: 'config', label: 'Certificado', icon: settingsOutline },
+  { id: 'cte-dist-dfe', label: 'Distribuição DFe', icon: cloudDownloadOutline },
   { id: 'cte-consulta', label: 'Consulta XML', icon: busOutline },
 ]
 

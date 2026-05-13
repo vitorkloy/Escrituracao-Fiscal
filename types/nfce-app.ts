@@ -13,6 +13,7 @@ export type AppTab =
   | 'nfe-dist-dfe'
   | 'nfe-recepcao-evento'
   | 'cte-consulta'
+  | 'cte-dist-dfe'
 
 /** Item da barra lateral (ícone Ionicons como data URI / nome). */
 export interface NavTabConfig {

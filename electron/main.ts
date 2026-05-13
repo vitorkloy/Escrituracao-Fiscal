@@ -19,6 +19,8 @@ import {
 } from './sefaz'
 import { nfeDistDFeInteresse, nfeRecepcaoEventoNF } from './nfe'
 import { cteConsultaSituacaoPorChave } from './cte'
+import { cteDistDFeInteresse } from './cte-dist-dfe'
+import { extrairXmlRetDistDfeIntCte } from './cte-dist-dfe-parser'
 import { extrairXmlRetConsSitCTe, parsearRetConsSitCTe } from './cte-consulta-parser'
 import { extrairXmlRetDistDfeInt, parsearRetDistDfeInt } from './nfe-dist-dfe-parser'
 import {
@@ -28,6 +30,9 @@ import {
 import type { DistDfeFiltroPapel } from './nfe-dist-dfe-parser'
 import { sincronizarDistDfeNfe, carregarUltNsu } from './nfe-dist-dfe-sync'
 import type { NfeDistDfeSyncProgresso } from './nfe-dist-dfe-sync'
+import { sincronizarDistDfeCte, carregarUltNsuCte } from './cte-dist-dfe-sync'
+import type { CteDistDfeSyncProgresso } from './cte-dist-dfe-sync'
+import { listarXmlsCteSalvos, type CteXmlSalvoInfo } from './cte-list-xmls-local'
 import { listarXmlsNfeSalvos, type NfeXmlSalvoInfo } from './nfe-list-xmls-local'
 import {
   DIR_COM_RETENCAO,
@@ -467,6 +472,12 @@ function enviarProgressoSyncDistDfe(p: NfeDistDfeSyncProgresso): void {
   const w = mainWindow
   if (!w || w.isDestroyed()) return
   w.webContents.send('nfe:sync-dist-progress', p)
+}
+
+function enviarProgressoSyncDistDfeCte(p: CteDistDfeSyncProgresso): void {
+  const w = mainWindow
+  if (!w || w.isDestroyed()) return
+  w.webContents.send('cte:sync-dist-progress', p)
 }
 
 // ---------------------------------------------------------------------------
@@ -1372,6 +1383,165 @@ ipcMain.handle(
       }
     } catch (err: unknown) {
       return { ok: false as const, xMotivo: mensagemErro(err) }
+    } finally {
+      if (tmpCriado && pfxPath) limparPfxTemp(pfxPath)
+    }
+  }
+)
+
+ipcMain.handle(
+  'cte:distribuicao-dfe',
+  async (_e, config: ConfigCert & { thumbprint?: string }, cteDadosMsgXml: string) => {
+    let pfxPath = ''
+    let tmpCriado = false
+    try {
+      const xml = String(cteDadosMsgXml ?? '').trim()
+      if (!xml) return { ok: false, xMotivo: 'Informe o XML do conteúdo de cteDadosMsg (ex.: distDFeInt).' }
+      const resolved = await resolverPfx(config)
+      pfxPath = resolved.pfxPath
+      tmpCriado = resolved.tmpCriado
+      const cfg = { ...config, pfxPath, senha: resolved.senha }
+      const agente = criarAgente(cfg.pfxPath, cfg.senha)
+      const xmlResposta = await cteDistDFeInteresse(cfg, xml, agente)
+      let resumoDistribuicao:
+        | { cStat: string; xMotivo: string; ultNSU: string; maxNSU: string }
+        | undefined
+      try {
+        const inner = extrairXmlRetDistDfeIntCte(xmlResposta)
+        const p = parsearRetDistDfeInt(inner)
+        resumoDistribuicao = {
+          cStat: p.cStat,
+          xMotivo: p.xMotivo,
+          ultNSU: p.ultNSU,
+          maxNSU: p.maxNSU,
+        }
+      } catch {
+        resumoDistribuicao = undefined
+      }
+      return { ok: true, xmlResposta, resumoDistribuicao }
+    } catch (err: unknown) {
+      return { ok: false, xMotivo: mensagemErro(err) }
+    } finally {
+      if (tmpCriado && pfxPath) limparPfxTemp(pfxPath)
+    }
+  }
+)
+
+ipcMain.handle(
+  'cte:dist-dfe-estado',
+  (_e, pastaRaiz: string, cnpj14: string) => {
+    try {
+      const pr = String(pastaRaiz ?? '').trim()
+      const cj = String(cnpj14 ?? '').replace(/\D/g, '')
+      if (!pr || cj.length !== 14) return { ok: false, xMotivo: 'Pasta ou CNPJ inválido.' }
+      return { ok: true, ultNSU: carregarUltNsuCte(pr, cj) }
+    } catch (err: unknown) {
+      return { ok: false, xMotivo: mensagemErro(err) }
+    }
+  }
+)
+
+ipcMain.handle(
+  'cte:listar-xmls-salvos',
+  (_e, pastaRaiz: string, cnpj14: string, filtro?: { ano?: string; mes?: string }) => {
+    try {
+      const pr = String(pastaRaiz ?? '').trim()
+      const cj = String(cnpj14 ?? '').replace(/\D/g, '')
+      if (!pr || cj.length !== 14)
+        return { ok: false, arquivos: [] as CteXmlSalvoInfo[], xMotivo: 'Pasta ou CNPJ inválido.' }
+      const arquivos = listarXmlsCteSalvos(pr, cj, filtro)
+      return { ok: true, arquivos, total: arquivos.length }
+    } catch (err: unknown) {
+      return { ok: false, arquivos: [], xMotivo: mensagemErro(err) }
+    }
+  }
+)
+
+ipcMain.handle(
+  'cte:sync-dist-dfe',
+  async (
+    _e,
+    config: ConfigCert & { thumbprint?: string },
+    opts: {
+      pastaRaiz: string
+      cnpj14: string
+      cUFAutor: string
+      reiniciarNsu: boolean
+      filtroPapel?: DistDfeFiltroPapel
+    }
+  ) => {
+    let pfxPath = ''
+    let tmpCriado = false
+    try {
+      const pastaRaiz = String(opts?.pastaRaiz ?? '').trim()
+      const cnpj14 = String(opts?.cnpj14 ?? '').replace(/\D/g, '')
+      const cUFAutor = String(opts?.cUFAutor ?? '').replace(/\D/g, '')
+      const filtroPapel: DistDfeFiltroPapel =
+        opts?.filtroPapel === 'emitente' ||
+        opts?.filtroPapel === 'destinatario' ||
+        opts?.filtroPapel === 'todos'
+          ? opts.filtroPapel
+          : 'todos'
+      if (!pastaRaiz) {
+        return {
+          ok: false,
+          totalSalvos: 0,
+          totalIgnorados: 0,
+          totalFiltrados: 0,
+          ultNSU: '',
+          lotes: 0,
+          xMotivo: 'Selecione a pasta raiz de armazenamento.',
+        }
+      }
+      if (cnpj14.length !== 14) {
+        return {
+          ok: false,
+          totalSalvos: 0,
+          totalIgnorados: 0,
+          totalFiltrados: 0,
+          ultNSU: '',
+          lotes: 0,
+          xMotivo: 'CNPJ com 14 dígitos é obrigatório.',
+        }
+      }
+      if (!/^\d{2}$/.test(cUFAutor)) {
+        return {
+          ok: false,
+          totalSalvos: 0,
+          totalIgnorados: 0,
+          totalFiltrados: 0,
+          ultNSU: '',
+          lotes: 0,
+          xMotivo: 'cUFAutor inválido.',
+        }
+      }
+
+      const resolved = await resolverPfx(config)
+      pfxPath = resolved.pfxPath
+      tmpCriado = resolved.tmpCriado
+      const cfg = { ...config, pfxPath, senha: resolved.senha }
+      const agente = criarAgente(cfg.pfxPath, cfg.senha)
+
+      return await sincronizarDistDfeCte({
+        config: cfg,
+        agente,
+        pastaRaiz,
+        cnpj14,
+        cUFAutor,
+        reiniciarNsu: Boolean(opts?.reiniciarNsu),
+        filtroPapel,
+        onProgress: enviarProgressoSyncDistDfeCte,
+      })
+    } catch (err: unknown) {
+      return {
+        ok: false,
+        totalSalvos: 0,
+        totalIgnorados: 0,
+        totalFiltrados: 0,
+        ultNSU: '',
+        lotes: 0,
+        xMotivo: mensagemErro(err),
+      }
     } finally {
       if (tmpCriado && pfxPath) limparPfxTemp(pfxPath)
     }
