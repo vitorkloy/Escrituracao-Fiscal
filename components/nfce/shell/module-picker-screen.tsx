@@ -1,7 +1,7 @@
 'use client'
 
 import { IonIcon } from '@ionic/react'
-import { documentTextOutline, funnelOutline, receiptOutline, statsChartOutline } from 'ionicons/icons'
+import { busOutline, documentTextOutline, funnelOutline, receiptOutline, statsChartOutline } from 'ionicons/icons'
 import type { AppModule } from '@/types/nfce-app'
 
 type ModulePickerScreenProps = {
@@ -16,7 +16,7 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
         <p className="text-sm text-[var(--text-secondary)] mb-5">
           Selecione qual tipo de documento deseja operar neste acesso.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <button
             type="button"
             onClick={() => onSelectModule('nfce')}
@@ -38,6 +38,17 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
               <span className="font-semibold">NF-e</span>
             </div>
             <p className="text-xs text-[var(--text-secondary)]">Integração de NF-e (v4.00) em fase inicial.</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectModule('cte')}
+            className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-4 text-left no-drag"
+          >
+            <div className="flex items-center gap-2 mb-2 text-[var(--text-primary)]">
+              <IonIcon icon={busOutline} className="w-5 h-5" />
+              <span className="font-semibold">CT-e</span>
+            </div>
+            <p className="text-xs text-[var(--text-secondary)]">Consulta de situação e XML (SEFAZ-SP, v4.00).</p>
           </button>
           <button
             type="button"

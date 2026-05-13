@@ -103,14 +103,18 @@ function SidebarFooter({
       <p className="text-xs text-[var(--text-muted)]">
         {appModule === 'nfe'
           ? 'SAE-NF-e'
-          : appModule === 'relatorio'
-            ? 'SAE-Relatório'
-            : appModule === 'xml-retencao'
-              ? 'SAE-XML Retenção'
-              : 'SAE-NFC-e'}{' '}
+          : appModule === 'cte'
+            ? 'SAE-CT-e'
+            : appModule === 'relatorio'
+              ? 'SAE-Relatório'
+              : appModule === 'xml-retencao'
+                ? 'SAE-XML Retenção'
+                : 'SAE-NFC-e'}{' '}
         v2.0.0
       </p>
-      <p className="text-xs text-[var(--text-muted)]">SEFAZ-SP · NT 2026</p>
+      <p className="text-xs text-[var(--text-muted)]">
+        {appModule === 'cte' ? 'SEFAZ-SP · CT-e WS v4.00' : 'SEFAZ-SP · NT 2026'}
+      </p>
     </div>
   )
 }
@@ -139,11 +143,13 @@ export function AppSidebar({
             <span className="font-medium text-[var(--text-secondary)]">
               {appModule === 'nfe'
                 ? 'NF-e'
-                : appModule === 'relatorio'
-                  ? 'Relatório'
-                  : appModule === 'xml-retencao'
-                    ? 'XML Retenção'
-                    : 'NFC-e'}
+                : appModule === 'cte'
+                  ? 'CT-e'
+                  : appModule === 'relatorio'
+                    ? 'Relatório'
+                    : appModule === 'xml-retencao'
+                      ? 'XML Retenção'
+                      : 'NFC-e'}
             </span>
           </span>
         </div>

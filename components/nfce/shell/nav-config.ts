@@ -1,4 +1,5 @@
 import {
+  busOutline,
   cloudDownloadOutline,
   documentTextOutline,
   downloadOutline,
@@ -22,6 +23,11 @@ export const NFE_NAV_TABS: NavTabConfig[] = [
   { id: 'nfe-recepcao-evento', label: 'Recepção evento', icon: sendOutline },
 ]
 
+export const CTE_NAV_TABS: NavTabConfig[] = [
+  { id: 'config', label: 'Certificado', icon: settingsOutline },
+  { id: 'cte-consulta', label: 'Consulta XML', icon: busOutline },
+]
+
 export const RELATORIO_NAV_TABS: NavTabConfig[] = [
   { id: 'relatorio', label: 'Relatório', icon: documentTextOutline },
 ]
@@ -30,8 +36,9 @@ export const XML_RETENCAO_NAV_TABS: NavTabConfig[] = [
   { id: 'xml-retencao', label: 'Classif. XML retenção', icon: funnelOutline },
 ]
 
-export function navTabsForModule(modulo: 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao'): NavTabConfig[] {
+export function navTabsForModule(modulo: 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao' | 'cte'): NavTabConfig[] {
   if (modulo === 'nfe') return NFE_NAV_TABS
+  if (modulo === 'cte') return CTE_NAV_TABS
   if (modulo === 'relatorio') return RELATORIO_NAV_TABS
   if (modulo === 'xml-retencao') return XML_RETENCAO_NAV_TABS
   return NFCE_NAV_TABS

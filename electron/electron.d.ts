@@ -85,6 +85,21 @@ interface NfeSoapResultado {
   resumoDistribuicao?: NfeSoapResumoDistribuicao
 }
 
+interface CteConsultaSituacaoResumo {
+  cStat: string
+  xMotivo: string
+  chCTe?: string
+  xmlProtCTe?: string
+  xmlProcCTe?: string
+}
+
+interface CteConsultaSituacaoResultado {
+  ok: boolean
+  xmlResposta?: string
+  xMotivo?: string
+  resumo?: CteConsultaSituacaoResumo
+}
+
 type NfeDistDfeFiltroPapel = 'todos' | 'emitente' | 'destinatario'
 
 interface NfeDistDfeSyncProgresso {
@@ -147,7 +162,7 @@ interface NfeBlockTimer {
 }
 
 type ThemePreference = 'light' | 'dark' | 'system'
-type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao'
+type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao' | 'cte'
 
 declare global {
   interface Window {
@@ -227,6 +242,12 @@ declare global {
           filtro?: { ano?: string; mes?: string }
         ): Promise<{ ok: boolean; arquivos?: NfeXmlSalvoInfo[]; total?: number; xMotivo?: string }>
         onSyncDistProgress(cb: (p: NfeDistDfeSyncProgresso) => void): () => void
+      }
+      cte: {
+        consultaSituacao(
+          config: SefazConfig,
+          opts: { chCTe: string; tpAmb: '1' | '2'; ambienteEndpoint: 'producao' | 'homologacao' }
+        ): Promise<CteConsultaSituacaoResultado>
       }
       fs: {
         selecionarPasta(): Promise<string | null>

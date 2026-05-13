@@ -105,6 +105,13 @@ contextBridge.exposeInMainWorld('electron', {
     },
   },
 
+  cte: {
+    consultaSituacao: (
+      config: ConfigCert & { thumbprint?: string },
+      opts: { chCTe: string; tpAmb: '1' | '2'; ambienteEndpoint: 'producao' | 'homologacao' }
+    ) => ipcRenderer.invoke('cte:consulta-situacao', config, opts),
+  },
+
   fs: {
     selecionarPasta:  ()                                => ipcRenderer.invoke('fs:selecionar-pasta'),
     salvarXml:        (c: string, n: string)            => ipcRenderer.invoke('fs:salvar-xml', c, n),
@@ -135,7 +142,7 @@ contextBridge.exposeInMainWorld('electron', {
   app: {
     setBusy: (busy: boolean) => ipcRenderer.send('app:set-busy', busy),
     getVersion: () => ipcRenderer.invoke('app:get-version') as Promise<string>,
-    setModulo: (modulo: 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao') =>
+    setModulo: (modulo: 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao' | 'cte') =>
       ipcRenderer.invoke('app:set-modulo', modulo) as Promise<boolean>,
     setNfeBlockTimer: (payload: {
       certId: string

@@ -18,6 +18,8 @@ import {
   type ResultadoDownload,
 } from './sefaz'
 import { nfeDistDFeInteresse, nfeRecepcaoEventoNF } from './nfe'
+import { cteConsultaSituacaoPorChave } from './cte'
+import { extrairXmlRetConsSitCTe, parsearRetConsSitCTe } from './cte-consulta-parser'
 import { extrairXmlRetDistDfeInt, parsearRetDistDfeInt } from './nfe-dist-dfe-parser'
 import {
   extrairXmlNfeRecepcaoEventoResult,
@@ -45,7 +47,7 @@ const execFileAsync = promisify(execFile)
 // ---------------------------------------------------------------------------
 
 type ThemePreference = 'light' | 'dark' | 'system'
-type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao'
+type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao' | 'cte'
 
 interface CertStorePayload {
   pfxPath: string
@@ -376,7 +378,11 @@ ipcMain.handle('app:get-version', () => app.getVersion())
 ipcMain.handle(
   'app:set-modulo',
   (_e, modulo: AppModule) =>
-    modulo === 'nfce' || modulo === 'nfe' || modulo === 'relatorio' || modulo === 'xml-retencao'
+    modulo === 'nfce' ||
+    modulo === 'nfe' ||
+    modulo === 'relatorio' ||
+    modulo === 'xml-retencao' ||
+    modulo === 'cte'
 )
 ipcMain.on('app:set-busy', (_e, busy: boolean) => {
   appEstaOcupada = Boolean(busy)
@@ -1324,6 +1330,48 @@ ipcMain.handle(
       return { ok: true, xmlResposta, resumoRecepcao }
     } catch (err: unknown) {
       return { ok: false, xMotivo: mensagemErro(err) }
+    } finally {
+      if (tmpCriado && pfxPath) limparPfxTemp(pfxPath)
+    }
+  }
+)
+
+ipcMain.handle(
+  'cte:consulta-situacao',
+  async (
+    _e,
+    config: ConfigCert & { thumbprint?: string },
+    opts: { chCTe: string; tpAmb: '1' | '2'; ambienteEndpoint: 'producao' | 'homologacao' }
+  ) => {
+    let pfxPath = ''
+    let tmpCriado = false
+    try {
+      const ch = String(opts?.chCTe ?? '').replace(/\D/g, '')
+      if (ch.length !== 44) {
+        return { ok: false as const, xMotivo: 'Informe a chave de acesso do CT-e com 44 dígitos.' }
+      }
+      const tpAmb: '1' | '2' = opts?.tpAmb === '2' ? '2' : '1'
+      const ambienteEndpoint = opts?.ambienteEndpoint === 'homologacao' ? 'homologacao' : 'producao'
+
+      const resolved = await resolverPfx(config)
+      pfxPath = resolved.pfxPath
+      tmpCriado = resolved.tmpCriado
+      const cfg = { ...config, pfxPath, senha: resolved.senha }
+      const agente = criarAgente(cfg.pfxPath, cfg.senha)
+      const xmlResposta = await cteConsultaSituacaoPorChave(
+        cfg,
+        { chCTe: ch, tpAmb, ambienteEndpoint },
+        agente
+      )
+      try {
+        const inner = extrairXmlRetConsSitCTe(xmlResposta)
+        const resumo = parsearRetConsSitCTe(inner)
+        return { ok: true as const, xmlResposta, resumo }
+      } catch {
+        return { ok: true as const, xmlResposta, resumo: undefined }
+      }
+    } catch (err: unknown) {
+      return { ok: false as const, xMotivo: mensagemErro(err) }
     } finally {
       if (tmpCriado && pfxPath) limparPfxTemp(pfxPath)
     }

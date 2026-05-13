@@ -12,6 +12,7 @@ export type AppTab =
   | 'xml-retencao'
   | 'nfe-dist-dfe'
   | 'nfe-recepcao-evento'
+  | 'cte-consulta'
 
 /** Item da barra lateral (ícone Ionicons como data URI / nome). */
 export interface NavTabConfig {
@@ -21,7 +22,7 @@ export interface NavTabConfig {
 }
 
 export type SefazEnvironment = 'producao'
-export type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao'
+export type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao' | 'cte'
 
 export type CertificateSourceMode = 'store' | 'arquivo'
 

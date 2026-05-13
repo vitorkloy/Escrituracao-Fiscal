@@ -1,7 +1,7 @@
 /**
  * Aviso quando o certificado vem de arquivo .pfx e a senha ainda não foi informada.
  */
-export function CertificatePasswordWarning({ context }: { context: 'listagem' | 'download' }) {
+export function CertificatePasswordWarning({ context }: { context: 'listagem' | 'download' | 'cte' }) {
   return (
     <div
       className="mb-4 px-4 py-3 rounded flex items-center gap-3 bg-[var(--amber)] text-black border border-[var(--amber)]"
@@ -14,6 +14,11 @@ export function CertificatePasswordWarning({ context }: { context: 'listagem' | 
           <p className="text-sm opacity-90">
             Com arquivo .pfx, a senha é obrigatória. Vá na aba <strong>Certificado</strong>, informe a senha e clique
             em Verificar antes de buscar.
+          </p>
+        ) : context === 'cte' ? (
+          <p className="text-sm opacity-90">
+            Com arquivo .pfx, a senha é obrigatória. Vá na aba <strong>Certificado</strong>, informe a senha e clique
+            em Verificar antes de consultar o CT-e.
           </p>
         ) : (
           <p className="text-sm opacity-90">
