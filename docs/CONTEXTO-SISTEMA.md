@@ -66,7 +66,7 @@ Resumo do que `electron/preload.ts` expõe:
 | `cert` | Listar certs do sistema, testar store/arquivo, selecionar PFX, salvar/carregar config |
 | `sefaz` | Listagem NFC-e (com cancelamento e progresso), download unitário/lote, progresso de lote |
 | `nfe` | Distribuição DFe, recepção de evento, estado NSU, sync DistDFe (com eventos de progresso), listar XMLs salvos |
-| `cte` | Consulta situação CT-e por chave (`consSitCTe`, SEFAZ-SP v4.00) |
+| `cte` | CT-e: consulta SP (`consSitCTe`), DistDFe AN (`cteDistDFeInteresse`), sync NSU, listagem de XMLs gravados |
 | `fs` | Pasta, salvar XML, abrir pasta, ler UTF-8 |
 | `relatorio` | Comparativo XLSX, listar XMLs da pasta |
 | `xmlRetencao` | Seleção/análise/export/relatório XLSX do fluxo de retenção |
@@ -94,9 +94,11 @@ Resumo do que `electron/preload.ts` expõe:
 
 ---
 
-## 7. CT-e (SEFAZ-SP)
+## 7. CT-e (SEFAZ-SP + Ambiente Nacional)
 
-- **CTeConsultaV4** (`consSitCTe` / `retConsSitCTe`): `electron/cte.ts`, parser `electron/cte-consulta-parser.ts`, IPC `cte:consulta-situacao` → `window.electron.cte.consultaSituacao`. Detalhes em **`docs/MODULO-CTE-SEFAZ-SP.md`**. Logs de desenvolvimento: `DEBUG=cte`.
+- **Consulta por chave (SP):** `CTeConsultaV4` — `consSitCTe` / `retConsSitCTe` em `electron/cte.ts`, parser `electron/cte-consulta-parser.ts`, IPC `cte:consulta-situacao` → `window.electron.cte.consultaSituacao`.
+- **Distribuição DFe (AN):** `CTeDistribuicaoDFe` — `cteDistDFeInteresse` / `retDistDFeInt` em `electron/cte-dist-dfe.ts`, build `cte-dist-dfe-build.ts`, parser `cte-dist-dfe-parser.ts`, sincronização `cte-dist-dfe-sync.ts`; IPC `cte:distribuicao-dfe`, `cte:dist-dfe-estado`, `cte:sync-dist-dfe`, evento `cte:sync-dist-progress`, `cte:listar-xmls-salvos`. Estado `.cte-dist-state.json`; log `sync-cte-debug.log` na pasta raiz configurada.
+- **Visão de arquitetura:** **`docs/ARQUITETURA-MODULO-CTE.md`**. Especificação e URLs: **`docs/MODULO-CTE-SEFAZ-SP.md`**. Logs de desenvolvimento: `DEBUG=cte`.
 
 ---
 

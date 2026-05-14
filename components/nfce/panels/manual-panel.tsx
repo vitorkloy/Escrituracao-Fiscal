@@ -37,7 +37,7 @@ const MANUAL_VISAO_GERAL: ManualSectionData = {
       use <strong>Trocar módulo</strong> na barra lateral para voltar à escolha.
     </>,
     <>
-      Módulos disponíveis: <strong>NFC-e</strong> (SP), <strong>NF-e</strong> (AN), <strong>CT-e</strong> (consulta SP),{' '}
+      Módulos disponíveis: <strong>NFC-e</strong> (SP), <strong>NF-e</strong> (AN), <strong>CT-e</strong> (consulta SP + DistDFe AN),{' '}
       <strong>Relatório</strong> (XLSX a partir de pasta de XMLs) e <strong>XML Retenção</strong> (classificação de XMLs). O detalhe
       de cada um está na aba <strong>Módulos</strong> deste manual.
     </>,
@@ -94,8 +94,8 @@ const MANUAL_CERTIFICADOS: ManualSectionData = {
       ICP-Brasil. Mensagens sobre CNPJ da chave diferente do certificado — selecione o certificado da empresa correta.
     </>,
     <>
-      Serviços de NFC-e e NF-e no eFis utilizam <strong>produção</strong> nos fluxos principais; no <strong>CT-e</strong> pode escolher
-      endpoint de produção ou homologação na própria tela de consulta.
+      Serviços de NFC-e e NF-e no eFis utilizam <strong>produção</strong> nos fluxos principais; no <strong>CT-e</strong>, a DistDFe AN
+      está em produção e a <strong>consulta por chave</strong> na SP permite escolher produção ou homologação na própria tela.
     </>,
   ],
 }
@@ -176,19 +176,23 @@ const MANUAL_SECOES_MODULOS: ManualSectionData[] = [
     ],
   },
   {
-    titulo: 'Módulo CT-e (SEFAZ-SP)',
+    titulo: 'Módulo CT-e (SEFAZ-SP + AN)',
     itens: [
       <>
-        <strong>O que faz:</strong> consulta de <strong>situação</strong> do CT-e pela <strong>chave de 44 dígitos</strong> no serviço{' '}
-        <strong>CTeConsultaV4</strong> da SEFAZ-SP (<code className="text-[11px]">consSitCTe</code>).
+        <strong>O que faz:</strong> na <strong>SEFAZ-SP</strong>, consulta de <strong>situação</strong> do CT-e pela{' '}
+        <strong>chave de 44 dígitos</strong> (<code className="text-[11px]">consSitCTe</code>, <strong>CTeConsultaV4</strong>). No{' '}
+        <strong>Ambiente Nacional</strong>, <strong>Distribuição DFe</strong> por NSU (<code className="text-[11px]">cteDistDFeInteresse</code>,{' '}
+        <strong>CTeDistribuicaoDFe</strong>), com filtro por papel (emitente/destinatário) e tabela de documentos por lote durante a
+        sincronização.
       </>,
       <>
-        <strong>Abas:</strong> <strong>Certificado</strong>, <strong>Consulta XML</strong>.
+        <strong>Abas:</strong> <strong>Certificado</strong>, <strong>Distribuição DFe</strong>, <strong>Consulta XML</strong>.
       </>,
       <>
-        Informe a chave, o <code className="text-[11px]">tpAmb</code> (1 produção / 2 homologação no XML) e o <strong>endpoint</strong>{' '}
-        (produção ou homologação). Após a resposta, pode guardar <code className="text-[11px]">procCTe</code>,{' '}
-        <code className="text-[11px]">protCTe</code> ou o SOAP completo, conforme os botões disponíveis.
+        Na <strong>Distribuição DFe</strong>, indique pasta raiz e CNPJ (alinhado ao certificado), <code className="text-[11px]">cUFAutor</code>, filtro e
+        inicie a sincronização; o estado fica em <code className="text-[11px]">.cte-dist-state.json</code> na pasta raiz. Na{' '}
+        <strong>Consulta XML</strong>, informe chave, <code className="text-[11px]">tpAmb</code> e endpoint SP; pode guardar{' '}
+        <code className="text-[11px]">procCTe</code>, <code className="text-[11px]">protCTe</code> ou o SOAP completo.
       </>,
       <>
         O certificado utilizado deve ser adequado à operação (emitente, tomador, etc., conforme regras da SEFAZ para aquele documento).

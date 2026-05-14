@@ -1,8 +1,8 @@
 # Esquema de integração — módulo CT-e (eFis)
 
-**Estado:** implementado no código — consulta **situação por chave** (`consSitCTe` → `retConsSitCTe`) via `CTeConsultaV4.asmx` (SP), IPC `cte:consulta-situacao`, painel **Consulta XML** no módulo **CT-e**.
+**Estado:** implementado — **consulta por chave** na SEFAZ-SP (`CTeConsultaV4`, `consSitCTe`) e **Distribuição DFe por NSU** na AN (`CTeDistribuicaoDFe`, `cteDistDFeInteresse`), com painéis **Consulta XML** e **Distribuição DFe**, IPC `cte:*` e progresso `cte:sync-dist-progress`.
 
-Este documento descreve **onde e como** o módulo CT-e se conecta ao aplicativo existente. A especificação funcional e URLs estão em **`docs/MODULO-CTE-SEFAZ-SP.md`**.
+Este documento descreve **onde e como** o módulo CT-e se liga ao eFis. A especificação funcional e URLs estão em **`docs/MODULO-CTE-SEFAZ-SP.md`**; o mapa sistémico em **`docs/ARQUITETURA-MODULO-CTE.md`**.
 
 ---
 
@@ -39,7 +39,8 @@ flowchart TB
     SB["AppSidebar"]
     NAV["nav-config.ts"]
     MPA["MainPanelArea"]
-    PNL["CteConsultaPanel (novo)"]
+    PNC["CteConsultaPanel"]
+    PND["CteDistribuicaoDfePanel"]
   end
   subgraph types["Tipos"]
     T["types/nfce-app.ts"]
@@ -50,16 +51,20 @@ flowchart TB
   end
   subgraph main["Main"]
     MN["electron/main.ts"]
-    CT["electron/cte.ts (novo)"]
+    CT["cte.ts"]
+    CD["cte-dist-dfe*.ts"]
   end
   MP --> PG
   PG --> SB
   PG --> MPA
   SB --> NAV
-  MPA --> PNL
-  PNL --> PL
+  MPA --> PNC
+  MPA --> PND
+  PNC --> PL
+  PND --> PL
   PL --> MN
   MN --> CT
+  MN --> CD
   T --> PG
   T --> SB
   T --> NAV
@@ -70,22 +75,17 @@ flowchart TB
 
 ---
 
-## 3. Checklist por arquivo (ordem sugerida)
+## 3. Mapa de ficheiros (implementado)
 
-| # | Arquivo | O que alterar |
-|---|---------|----------------|
-| 1 | `types/nfce-app.ts` | Incluir `'cte'` em `AppModule`. Incluir aba, ex.: `'cte-consulta'` (e futuras `'cte-dist-dfe'`, etc.) em `AppTab`. |
-| 2 | `electron/main.ts` | No tipo `AppModule` (topo do ficheiro), incluir `'cte'`. No handler `app:set-modulo`, acrescentar `modulo === 'cte'` à condição **OR**. Registrar `ipcMain.handle('cte:…', …)` e delegar a `electron/cte.ts` + mesmo padrão de **agente HTTPS** / certificado que `sefaz` / `nfe` (reutilizar helpers já usados nos handlers existentes). |
-| 3 | `electron/preload.ts` | Objeto `cte: { consultarPorChave: … }` com `ipcRenderer.invoke`. Estender `app.setModulo` com literal `'cte'`. |
-| 4 | `electron/electron.d.ts` | `AppModule` + tipagem de `window.electron.cte`. |
-| 5 | `components/nfce/shell/nav-config.ts` | Constante `CTE_NAV_TABS` (ex.: Certificado + Consulta XML). Em `navTabsForModule`, ramo `modulo === 'cte'`. |
-| 6 | `components/nfce/shell/module-picker-screen.tsx` | Novo cartão “CT-e” com `onSelectModule('cte')`. Ajustar grelha (`md:grid-cols-5` ou duas linhas) para não espremer em ecrãs pequenos. |
-| 7 | `app/page.tsx` | Em `escolherModulo`, se `modulo === 'cte'`, manter `setActiveTab('config')` (igual NF-e/NFC-e). |
-| 8 | `components/nfce/shell/main-panel-area.tsx` | Importar painel CT-e. Condição: `activeTab === 'cte-consulta' && appModule === 'cte'` → renderizar painel com `certificateState`, `showToast`, `onLoadingStateChange`. |
-| 9 | `components/nfce/shell/app-sidebar.tsx` | Textos condicionais do subtítulo e rodapé (`'CT-e'`, label tipo “SAE-CT-e” ou “CT-e SEFAZ-SP”) para `appModule === 'cte'`. Regra `appModule !== 'relatorio'` para certificado: **CT-e precisa de certificado** — tratar como `nfe`/`nfce` (mostrar bloco de certificado). |
-| 10 | `electron/cte.ts` (+ parser opcional) | Novo ficheiro; sem alterar `sefaz.ts` / `nfe.ts` além do necessário. |
-
-**Opcional documentação:** `docs/CONTEXTO-SISTEMA.md` — uma linha apontando para CT-e quando existir implementação.
+| Área | Ficheiros |
+|------|-----------|
+| Tipos e abas | `types/nfce-app.ts` (`AppModule` `cte`, `AppTab` `cte-consulta`, `cte-dist-dfe`), `nav-config.ts` (`CTE_NAV_TABS`), `main-panel-area.tsx` |
+| UI | `cte-consulta-panel.tsx`, `cte-distribuicao-dfe-panel.tsx`, `certificate-password-warning.tsx` (contexto `cte-dist`), `module-picker-screen.tsx` |
+| Main / IPC | `electron/main.ts` (`app:set-modulo` inclui `cte`, handlers `cte:*`) |
+| Bridge | `electron/preload.ts`, `electron/electron.d.ts` (`window.electron.cte.*`) |
+| Lógica SP | `electron/cte.ts`, `electron/cte-consulta-parser.ts` |
+| Lógica AN DistDFe | `electron/cte-dist-dfe.ts`, `cte-dist-dfe-build.ts`, `cte-dist-dfe-parser.ts`, `cte-dist-dfe-sync.ts`, `cte-list-xmls-local.ts` |
+| Arranque módulo | `app/page.tsx` — ao escolher CT-e, `activeTab` inicial em `config` (certificado), como NF-e/NFC-e |
 
 ---
 
@@ -99,8 +99,8 @@ flowchart TB
 
 ## 5. Overlay e “app ocupada”
 
-- Para consulta **única por chave**, costuma ser rápido; ainda assim pode usar `onLoadingStateChange({ type: 'request' })` alinhado a `LoadingOverlay` em `page.tsx`, como outros fluxos curtos.
-- Se no futuro existir **sync NSU** (AN), aí sim espelhar `nfe:sync-dist-progress` com canal `cte:sync-dist-progress` e `app:set-busy(true)` durante lotes.
+- Consulta **única por chave** costuma ser rápida; usa `onLoadingStateChange` como outros fluxos curtos.
+- **Sync DistDFe (AN):** `cte:sync-dist-progress` no main e `window.electron.cte.onSyncDistProgress` no renderer; `app:set-busy(true)` durante a sincronização (vários lotes).
 
 ---
 
@@ -112,9 +112,12 @@ flowchart LR
   T --> NAV
   T --> MP[ModulePicker]
   T --> SET[set-modulo main]
-  TAB[AppTab cte-consulta]
-  TAB --> MPA
-  NAV --> TAB
+  TAB1[AppTab cte-dist-dfe]
+  TAB2[AppTab cte-consulta]
+  TAB1 --> MPA
+  TAB2 --> MPA
+  NAV --> TAB1
+  NAV --> TAB2
 ```
 
 Sem `AppModule === 'cte'` e abas em `nav-config`, o utilizador nunca chega ao painel. Sem alargar `app:set-modulo` no **main**, `persistModuleSelection('cte')` falha silenciosamente (toast já existente em `page.tsx`).
@@ -124,10 +127,11 @@ Sem `AppModule === 'cte'` e abas em `nav-config`, o utilizador nunca chega ao pa
 ## 7. Referência cruzada
 
 | Documento | Conteúdo |
-|-----------|-----------|
-| `docs/MODULO-CTE-SEFAZ-SP.md` | URLs, SOAP, escopo SP vs AN, ordem de implementação técnica |
+|-----------|----------|
+| `docs/ARQUITETURA-MODULO-CTE.md` | Camadas, dois eixos (SP vs AN), IPC, estado em disco |
+| `docs/MODULO-CTE-SEFAZ-SP.md` | URLs, SOAP, escopo SP vs AN |
 | `docs/CONTEXTO-SISTEMA.md` | Visão geral do eFis e IPC existente |
 
 ---
 
-*Esquema de integração à estrutura atual do repositório; linhas de código citadas podem mudar — validar com grep nos símbolos `AppModule`, `app:set-modulo`, `navTabsForModule`.*
+*Integração alinhada ao repositório atual; validar com grep em `AppModule`, `app:set-modulo`, `navTabsForModule`, `cte:sync-dist`.*

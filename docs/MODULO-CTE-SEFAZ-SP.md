@@ -1,6 +1,6 @@
-# Módulo proposto: consulta XML CT-e — SEFAZ-SP (e API nacional relacionada)
+# Módulo CT-e — SEFAZ-SP e Ambiente Nacional (referência técnica)
 
-Documento de **especificação e esquema** (não implementação). Objetivo: integrar ao **eFis** (Electron + Next.js) o fluxo de **consulta de situação / XML de CT-e**, reutilizando o mesmo modelo de **certificado mTLS**, **IPC** e **parser XML** já usados em NFC-e e NF-e.
+Documento de **especificação e referência** alinhado ao **eFis** (Electron + Next.js): **consulta por chave** na SEFAZ-SP e **distribuição DFe por NSU** na AN. A arquitetura ficheiro-a-ficheiro está em **`docs/ARQUITETURA-MODULO-CTE.md`**.
 
 ---
 
@@ -9,7 +9,7 @@ Documento de **especificação e esquema** (não implementação). Objetivo: int
 | Camada | O quê | Onde | Observação |
 |--------|--------|------|------------|
 | **A — Consulta por chave (SP)** | `CTeConsultaV4` com `consSitCTe` | Web Service estadual SEFAZ-SP | Retorno típico inclui situação e, quando autorizado, **protocolo com XML** (`protCTe`). É o foco natural do nome “consulta XML CT-e SEFAZ SP”. |
-| **B — Distribuição em lote (NSU)** | `CTeDistribuicaoDFe` | **Ambiente nacional** (AN), não exclusivo de SP | Mesmo padrão conceitual da NF-e `NFeDistribuicaoDFe`: fila por NSU, lotes de até 50 documentos, vários papéis no CT-e. Pode ser **segunda fase** do módulo ou módulo “CT-e AN” separado na UI. |
+| **B — Distribuição em lote (NSU)** | `CTeDistribuicaoDFe` / `cteDistDFeInteresse` | **Ambiente nacional** (AN) | **Implementado** no eFis: URL `https://www1.cte.fazenda.gov.br/CTeDistribuicaoDFe/CTeDistribuicaoDFe.asmx`, aba **Distribuição DFe**, estado `.cte-dist-state.json`, filtros emitente/destinatário. |
 
 **Fora do escopo oficial do app:** APIs REST de terceiros (Webmania, TecnoSpeed, etc.); o eFis hoje integra **SOAP + certificado do usuário**.
 
@@ -109,43 +109,46 @@ flowchart TB
   CTE --> AG
 ```
 
-Arquivos sugeridos (MVP camada A):
+Ficheiros **em produção** no repositório:
 
-| Arquivo | Responsabilidade |
+| Ficheiro | Responsabilidade |
 |---------|------------------|
-| `electron/cte.ts` | Constantes de URL (prod/hom), montagem do envelope SOAP, `postSoap`, chamada `cteConsultaCT` (nome da operação conforme WSDL). |
-| `electron/cte-consulta-parser.ts` | `fast-xml-parser` — extrair `retConsSitCTe`, `cStat`, `protCTe`, XML interno. |
-| `electron/main.ts` | Handlers IPC, reutilizar criação de agente HTTPS a partir do mesmo fluxo de certificado que `sefaz` / `nfe`. |
-| `electron/preload.ts` + `electron/electron.d.ts` | Expor `electron.cte.consultarPorChave(...)`. |
-| `components/nfce/panels/cte-consulta-panel.tsx` | UI: campo chave, ambiente, botão consultar, área de status + botão salvar XML. |
-| `types/nfce-app.ts` (ou `types/cte-app.ts`) | `AppModule` incluir `cte`; `AppTab` incluir ex. `cte-consulta`. |
-| `components/nfce/shell/nav-config.ts` | Abas do módulo CT-e. |
-| `hooks/use-electron-app-meta.ts` | Persistir módulo `cte` se desejado (espelho do padrão `nfce` / `nfe`). |
-
-**Fase 2 (camada B):** novo cliente `electron/cte-dist-dfe.ts` + parser de `retDistDFeInt` espelhando `nfe-dist-dfe-*`, endpoint AN de `CTeDistribuicaoDFe`, estado `.cte-dist-state.json` (ou pasta unificada por decisão de produto).
-
----
-
-## 6. Superfície IPC proposta (MVP)
-
-| Canal | Payload (conceitual) | Retorno |
-|-------|----------------------|---------|
-| `cte:consulta-situacao` | `ConfigCert` + `chCTe` + `tpAmb` + `ambienteEndpoint` `producao` \| `homologacao` | `{ ok, cStat, xMotivo, xmlProtCte?: string, soapBruto?: string }` ou erro de rede |
-
-Opcionais posteriores:
-
-- `cte:status-servico` — health / mensagem institucional
-- `cte:recepcao-evento` — espelho de `nfeRecepcaoEventoNF` com envelope CT-e
-- `cte:sync-dist-dfe` — fila NSU (fase 2)
+| `electron/cte.ts` | Consulta SP: URLs prod/hom, envelope `cteCabecMsg` + `cteDadosMsg`, `cteConsultaCT`, retry |
+| `electron/cte-consulta-parser.ts` | `retConsSitCTe`, resumo e XMLs úteis |
+| `electron/cte-dist-dfe-build.ts` | `distDFeInt` namespace CT-e, listagem NSU |
+| `electron/cte-dist-dfe.ts` | SOAP `cteDistDFeInteresse` (AN produção) |
+| `electron/cte-dist-dfe-parser.ts` | `retDistDFeInt`, docZip, chaves, filtros papel |
+| `electron/cte-dist-dfe-sync.ts` | Sincronização NSU, progresso com `documentosLote` |
+| `electron/cte-list-xmls-local.ts` | Listar XMLs gravados na árvore CT-e |
+| `electron/main.ts` | IPC `cte:*` |
+| `electron/preload.ts` + `electron/electron.d.ts` | `window.electron.cte` |
+| `components/nfce/panels/cte-consulta-panel.tsx` | Aba consulta por chave |
+| `components/nfce/panels/cte-distribuicao-dfe-panel.tsx` | Aba DistDFe AN |
+| `types/nfce-app.ts`, `nav-config.ts`, `main-panel-area.tsx`, `module-picker-screen.tsx` | Módulo e abas |
 
 ---
 
-## 7. UX proposta
+## 6. Superfície IPC (implementada)
 
-1. **Sidebar:** novo módulo **“CT-e”** (ícone caminhão / documento).
-2. **Aba Certificado:** reutilizar o mesmo estado global de certificado (ou exigir revalidação).
-3. **Aba Consulta XML:** entrada da chave (44 dígitos), seleção produção/homologação, resultado com `cStat` / `xMotivo`, preview do trecho XML, ações **Salvar XML** e **Abrir pasta** (reutilizar `electron.fs` existente).
-4. **Confirmação ao fechar:** já existe `app:set-busy` para operações longas; consulta por chave costuma ser rápida, mas manter padrão se houver sync NSU no futuro.
+| Canal | Função |
+|-------|--------|
+| `cte:consulta-situacao` | Consulta SP por chave (`consSitCTe`) |
+| `cte:distribuicao-dfe` | SOAP AN com XML livre em `cteDadosMsg` |
+| `cte:dist-dfe-estado` | Lê `ultNSU` persistido (`.cte-dist-state.json`) |
+| `cte:sync-dist-dfe` | Sincronização contínua por NSU |
+| `cte:listar-xmls-salvos` | Lista XMLs na pasta raiz / CNPJ |
+| `cte:sync-dist-progress` | Evento main → renderer (lotes, `documentosLote`, conclusão, erro) |
+
+**Opcional futuro:** `cte:status-servico`, `cte:recepcao-evento` (espelho NF-e), consulta por chave na AN (`consChCTe`) se integrado.
+
+---
+
+## 7. UX (implementada)
+
+1. **Módulo CT-e** no ecrã inicial; **sidebar** com abas **Certificado**, **Distribuição DFe**, **Consulta XML**.
+2. **Distribuição DFe:** pasta raiz, CNPJ, `cUFAutor`, filtro (todos / emitente / destinatário), sincronização, tabela de documentos da sessão, listagem de ficheiros gravados, modo XML avançado.
+3. **Consulta XML:** chave, `tpAmb`, endpoint SP prod/hom, guardar `procCTe` / `protCTe` / SOAP.
+4. **`app:set-busy`** durante operações; DistDFe pode ser longa (vários lotes).
 
 ---
 
@@ -158,23 +161,23 @@ Opcionais posteriores:
 
 ---
 
-## 9. Ordem sugerida de implementação
+## 9. Manutenção e evolução
 
-1. Baixar WSDL `CTeConsultaV4` (homologação), fixar envelope e **um** caso de teste com chave válida.
-2. Implementar `electron/cte.ts` + parser + IPC + painel mínimo.
-3. Testes manuais prod/hom conforme política do produto.
-4. Documentar `cStat` usuais de `retConsSitCTe` em apêndice (tabela no `CONTEXTO.md` ou neste arquivo).
-5. (Opcional) `CTeDistribuicaoDFe` na AN em módulo ou sub-aba “Distribuição DFe CT-e”.
+1. Manter envelope e operações alinhados ao WSDL `CTeConsultaV4` / `CTeDistribuicaoDFe` da versão em uso.
+2. Regressão manual: consulta SP (prod/hom) e ciclo DistDFe (138/137, filtros emitente/destinatário).
+3. Documentar `cStat` usuais de `retConsSitCTe` e `retDistDFeInt` em apêndice (`CONTEXTO.md` ou este ficheiro) conforme forem surgindo casos de suporte.
+4. **Extensões possíveis (não implementadas):** `consChCTe` na AN, recepção de evento CT-e, DACTe/PDF local — ver notas em `ARQUITETURA-MODULO-CTE.md`.
 
 ---
 
 ## 10. Referências cruzadas no repositório
 
-- **Integração na UI e tipos (checklist por ficheiro):** `docs/INTEGRACAO-MODULO-CTE.md`.
+- **Arquitetura sistémica do módulo:** `docs/ARQUITETURA-MODULO-CTE.md`.
+- **Integração na UI e tipos (checklist):** `docs/INTEGRACAO-MODULO-CTE.md`.
 - Padrão SOAP 1.2 + `application/soap+xml`: `electron/nfe.ts`, `electron/sefaz.ts`.
 - IPC e bridge: `electron/preload.ts`, `electron/main.ts`.
 - Contexto geral: `docs/CONTEXTO-SISTEMA.md`, `CONTEXTO.md`.
 
 ---
 
-*Documento esquemático para planejamento; ajustar nomes de operações e namespaces após fixação do WSDL oficial na versão alvo.*
+*Referência técnica alinhada ao código; validar operações e namespaces com o WSDL oficial da versão em uso na SEFAZ.*

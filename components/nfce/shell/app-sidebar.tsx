@@ -113,7 +113,7 @@ function SidebarFooter({
         v2.0.0
       </p>
       <p className="text-xs text-[var(--text-muted)]">
-        {appModule === 'cte' ? 'SEFAZ-SP · CT-e WS v4.00' : 'SEFAZ-SP · NT 2026'}
+        {appModule === 'cte' ? 'SEFAZ-SP + AN · CT-e WS v4.00' : 'SEFAZ-SP · NT 2026'}
       </p>
     </div>
   )

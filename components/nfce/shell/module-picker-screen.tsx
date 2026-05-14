@@ -48,7 +48,9 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
               <IonIcon icon={busOutline} className="w-5 h-5" />
               <span className="font-semibold">CT-e</span>
             </div>
-            <p className="text-xs text-[var(--text-secondary)]">Consulta de situação e XML (SEFAZ-SP, v4.00).</p>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Consulta SP por chave e DistDFe AN (NSU), WS v4.00.
+            </p>
           </button>
           <button
             type="button"
