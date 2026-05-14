@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme, Menu } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
@@ -363,6 +363,9 @@ app.whenReady().then(() => {
   limparModuloPersistidoDoStore()
   applyNativeThemeSource(readTheme())
   nativeTheme.on('updated', () => updateMainWindowBackground())
+
+  // Remove a barra de menu padrão (File / Edit / View…) — o eFis usa só a UI web.
+  Menu.setApplicationMenu(null)
 
   createWindow()
   registerUpdaterIpc(app.isPackaged)
