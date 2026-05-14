@@ -23,8 +23,19 @@ import { extrairCnpjEmitenteDaChave44 } from './nfe-dist-dfe-parser'
 
 export type { DistDfeFiltroPapel }
 
+/** Uma linha da “lista” de documentos do lote (para UI tipo listagem NFC-e). */
+export interface CteDistDfeDocLinhaProgresso {
+  nsu: string
+  schema: string
+  tipo: 'procCTe' | 'resCTe' | 'evento' | 'outro'
+  chave?: string
+  situacao: 'salvo' | 'ignorado' | 'filtrado'
+}
+
 export interface CteDistDfeSyncProgresso {
   tipo: 'lote' | 'concluido' | 'erro'
+  /** Índice do lote (1-based), útil para a tabela de sessão. */
+  numeroLote?: number
   ultNSU?: string
   maxNSU?: string
   cStat?: string
@@ -35,6 +46,8 @@ export interface CteDistDfeSyncProgresso {
   totalIgnorados?: number
   totalFiltrados?: number
   mensagem?: string
+  /** Documentos deste lote (chaves extraídos dos docZip). */
+  documentosLote?: CteDistDfeDocLinhaProgresso[]
 }
 
 export interface CteDistDfeSyncResultado {
@@ -309,28 +322,37 @@ export async function sincronizarDistDfeCte(params: {
       let loteFiltrados = 0
       let filtDiag = { procCTe: 0, resCTe: 0, evento: 0, outro: 0, matchEmKey: 0 }
       const cnpjLimpo = cnpj14.replace(/\D/g, '')
+      const linhasProgresso: CteDistDfeDocLinhaProgresso[] = []
       for (const doc of ret.documentos) {
+        const tipoDoc = inferirTipoArquivoDistDfeCte(doc.schema, doc.xmlUtf8)
+        const chaveDoc = extrairChaveAcesso44Cte(doc.xmlUtf8)
         const persistir = devePersistirDocumentoDistDfeCte(doc.xmlUtf8, doc.schema, cnpj14, filtroPapel)
         if (!persistir) {
           loteFiltrados++
           totalFiltrados++
+          linhasProgresso.push({
+            nsu: doc.nsu,
+            schema: doc.schema,
+            tipo: tipoDoc,
+            chave: chaveDoc,
+            situacao: 'filtrado',
+          })
           if (filtroPapel !== 'todos') {
-            const tipo = inferirTipoArquivoDistDfeCte(doc.schema, doc.xmlUtf8)
-            const ch = extrairChaveAcesso44Cte(doc.xmlUtf8)
+            const ch = chaveDoc
             const emDaChave = ch ? extrairCnpjEmitenteDaChave44(ch) : undefined
-            if (tipo === 'procCTe') filtDiag.procCTe++
-            else if (tipo === 'resCTe') filtDiag.resCTe++
-            else if (tipo === 'evento') filtDiag.evento++
+            if (tipoDoc === 'procCTe') filtDiag.procCTe++
+            else if (tipoDoc === 'resCTe') filtDiag.resCTe++
+            else if (tipoDoc === 'evento') filtDiag.evento++
             else filtDiag.outro++
             if (emDaChave === cnpjLimpo) filtDiag.matchEmKey++
-            if (tipo !== 'evento' && emDaChave === cnpjLimpo) {
+            if (tipoDoc !== 'evento' && emDaChave === cnpjLimpo) {
               const emExtraido = extrairCnpjEmitenteDistDfeCte(doc.xmlUtf8)
               escreverDebugSync(pastaRaiz, cnpj14, {
                 evento: 'doc_filtrado_inesperado_cte',
                 lote: lotes,
                 nsu: doc.nsu,
                 schema: doc.schema,
-                tipo,
+                tipo: tipoDoc,
                 chave: ch ?? '(sem chave)',
                 emitenteDaChave: emDaChave,
                 emitenteExtraido: emExtraido ?? '(nenhum)',
@@ -350,6 +372,13 @@ export async function sincronizarDistDfeCte(params: {
           loteIgnorados++
           totalIgnorados++
         }
+        linhasProgresso.push({
+          nsu: doc.nsu,
+          schema: doc.schema,
+          tipo: tipoDoc,
+          chave: chaveDoc,
+          situacao: r === 'salvo' ? 'salvo' : 'ignorado',
+        })
       }
 
       if (filtroPapel !== 'todos' && loteFiltrados > 0) {
@@ -408,6 +437,7 @@ export async function sincronizarDistDfeCte(params: {
 
       emit({
         tipo: 'lote',
+        numeroLote: lotes,
         ultNSU,
         maxNSU: ret.maxNSU,
         cStat: '138',
@@ -418,6 +448,7 @@ export async function sincronizarDistDfeCte(params: {
         totalIgnorados,
         totalFiltrados,
         mensagem: ret.xMotivo,
+        documentosLote: linhasProgresso,
       })
 
       if (maxNsuValidoParaTerminoSincronia(ret.maxNSU) && compararNsu(ultNSU, ret.maxNSU) >= 0) {

@@ -27,6 +27,33 @@ type ModoPainel = 'xml-livre' | 'sincronizacao' | 'arquivos-salvos'
 
 type FiltroPapelDistDfe = 'todos' | 'emitente' | 'destinatario'
 
+type DocLinhaProgressoUi = {
+  nsu: string
+  schema: string
+  tipo: 'procCTe' | 'resCTe' | 'evento' | 'outro'
+  chave?: string
+  situacao: 'salvo' | 'ignorado' | 'filtrado'
+}
+
+type LinhaTabelaDistSessao = DocLinhaProgressoUi & {
+  id: string
+  numeroLote: number
+}
+
+const MAX_LINHAS_SESSAO = 1200
+
+function labelSituacao(s: LinhaTabelaDistSessao['situacao']): string {
+  if (s === 'salvo') return 'Novo'
+  if (s === 'ignorado') return 'Já existia'
+  return 'Filtrado'
+}
+
+function badgeSituacao(s: LinhaTabelaDistSessao['situacao']): 'green' | 'gray' | 'amber' {
+  if (s === 'salvo') return 'green'
+  if (s === 'ignorado') return 'gray'
+  return 'amber'
+}
+
 function formatarProgressoSync(p: {
   tipo: string
   cStat?: string
@@ -88,6 +115,7 @@ export function CteDistribuicaoDfePanel({
   const [reiniciarNsu, setReiniciarNsu] = useState(false)
   const [ultNsuPersistido, setUltNsuPersistido] = useState<string | null>(null)
   const [logSync, setLogSync] = useState<string[]>([])
+  const [linhasSessaoDist, setLinhasSessaoDist] = useState<LinhaTabelaDistSessao[]>([])
   const [syncRodando, setSyncRodando] = useState(false)
 
   const [filtroAno, setFiltroAno] = useState('')
@@ -106,6 +134,23 @@ export function CteDistribuicaoDfePanel({
     if (!isElectron) return
     const off = window.electron.cte.onSyncDistProgress((p) => {
       setLogSync((prev) => [...prev.slice(-120), formatarProgressoSync(p)])
+      if (p.tipo === 'lote' && p.documentosLote && p.documentosLote.length > 0 && typeof p.numeroLote === 'number') {
+        const lote = p.numeroLote
+        setLinhasSessaoDist((prev) => {
+          const novas: LinhaTabelaDistSessao[] = p.documentosLote!.map((d, i) => ({
+            id: `${lote}-${d.nsu}-${i}`,
+            numeroLote: lote,
+            nsu: d.nsu,
+            schema: d.schema,
+            tipo: d.tipo,
+            chave: d.chave,
+            situacao: d.situacao,
+          }))
+          const merged = [...prev, ...novas]
+          if (merged.length <= MAX_LINHAS_SESSAO) return merged
+          return merged.slice(merged.length - MAX_LINHAS_SESSAO)
+        })
+      }
     })
     return off
   }, [isElectron])
@@ -215,6 +260,7 @@ export function CteDistribuicaoDfePanel({
     }
 
     setLogSync([])
+    setLinhasSessaoDist([])
     setSyncRodando(true)
     onLoadingStateChange({ type: 'request', label: 'Sincronizando CT-e (AN)…' })
     window.electron.app.setBusy(true)
@@ -345,7 +391,7 @@ export function CteDistribuicaoDfePanel({
 
       <div className="flex-1 min-h-0 overflow-auto p-6">
         {modo === 'sincronizacao' && (
-          <div className={`p-4 ${SURFACE_CARD_CLASS} space-y-4 max-w-4xl`}>
+          <div className={`p-4 ${SURFACE_CARD_CLASS} space-y-4 max-w-5xl`}>
             <p className="text-xs text-[var(--text-secondary)]">
               Grava em <code className="text-[11px]">CNPJ/ano/mês/</code>. Estado do NSU:{' '}
               <code className="text-[11px]">.cte-dist-state.json</code>. Arquivos existentes não são sobrescritos.
@@ -455,6 +501,60 @@ export function CteDistribuicaoDfePanel({
                 </pre>
               </details>
             )}
+
+            <div className="pt-2 border-t border-[var(--border)]">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)]">Documentos desta sessão</h3>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-[var(--text-muted)]">
+                    {linhasSessaoDist.length} linha(s)
+                    {linhasSessaoDist.length >= MAX_LINHAS_SESSAO ? ` (últimas ${MAX_LINHAS_SESSAO})` : ''}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setLinhasSessaoDist([])}
+                    className={`text-xs no-drag ${BUTTON_SUBTLE_CLASS}`}
+                    disabled={linhasSessaoDist.length === 0}
+                  >
+                    Limpar tabela
+                  </button>
+                </div>
+              </div>
+              <p className="text-[10px] text-[var(--text-muted)] mb-2">
+                Lista ao estilo NFC-e: cada linha corresponde a um <code className="text-[10px]">docZip</code> do lote
+                (chave extraída do XML; eventos podem repetir chave do conhecimento).
+              </p>
+              {linhasSessaoDist.length === 0 ? (
+                <p className="text-xs text-[var(--text-muted)]">Execute uma sincronização para preencher a lista.</p>
+              ) : (
+                <div className="max-h-72 overflow-auto rounded border border-[var(--border)]">
+                  <table className="w-full text-xs">
+                    <thead className="sticky top-0 bg-[var(--bg-raised)] text-[var(--text-muted)]">
+                      <tr>
+                        <th className="text-left p-2 w-11">Lote</th>
+                        <th className="text-left p-2">NSU</th>
+                        <th className="text-left p-2 min-w-[9rem]">Chave</th>
+                        <th className="text-left p-2">Tipo</th>
+                        <th className="text-left p-2">Situação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {linhasSessaoDist.map((row) => (
+                        <tr key={row.id} className="border-t border-[var(--border)]">
+                          <td className="p-2 font-mono text-[var(--text-secondary)]">{row.numeroLote}</td>
+                          <td className="p-2 font-mono text-[10px] text-[var(--text-secondary)]">{row.nsu}</td>
+                          <td className="p-2 font-mono text-[10px] break-all text-[var(--text-primary)]">{row.chave ?? '—'}</td>
+                          <td className="p-2 text-[var(--text-secondary)]">{row.tipo}</td>
+                          <td className="p-2">
+                            <Badge tone={badgeSituacao(row.situacao)} label={labelSituacao(row.situacao)} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

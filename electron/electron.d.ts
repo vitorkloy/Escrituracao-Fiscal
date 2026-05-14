@@ -133,8 +133,17 @@ interface NfeXmlSalvoInfo {
   mes: string
 }
 
+interface CteDistDfeDocLinhaProgresso {
+  nsu: string
+  schema: string
+  tipo: 'procCTe' | 'resCTe' | 'evento' | 'outro'
+  chave?: string
+  situacao: 'salvo' | 'ignorado' | 'filtrado'
+}
+
 interface CteDistDfeSyncProgresso {
   tipo: 'lote' | 'concluido' | 'erro'
+  numeroLote?: number
   ultNSU?: string
   maxNSU?: string
   cStat?: string
@@ -145,6 +154,7 @@ interface CteDistDfeSyncProgresso {
   totalIgnorados?: number
   totalFiltrados?: number
   mensagem?: string
+  documentosLote?: CteDistDfeDocLinhaProgresso[]
 }
 
 interface CteDistDfeSyncResultado {

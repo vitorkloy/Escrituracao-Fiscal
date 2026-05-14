@@ -131,6 +131,7 @@ contextBridge.exposeInMainWorld('electron', {
     ) => ipcRenderer.invoke('cte:listar-xmls-salvos', pastaRaiz, cnpj14, filtro),
     onSyncDistProgress: (cb: (p: {
       tipo: 'lote' | 'concluido' | 'erro'
+      numeroLote?: number
       ultNSU?: string
       maxNSU?: string
       cStat?: string
@@ -141,6 +142,13 @@ contextBridge.exposeInMainWorld('electron', {
       totalIgnorados?: number
       totalFiltrados?: number
       mensagem?: string
+      documentosLote?: Array<{
+        nsu: string
+        schema: string
+        tipo: 'procCTe' | 'resCTe' | 'evento' | 'outro'
+        chave?: string
+        situacao: 'salvo' | 'ignorado' | 'filtrado'
+      }>
     }) => void) => {
       const fn = (_e: Electron.IpcRendererEvent, p: Parameters<typeof cb>[0]) => cb(p)
       ipcRenderer.on('cte:sync-dist-progress', fn)
