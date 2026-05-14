@@ -396,6 +396,12 @@ export function CteDistribuicaoDfePanel({
               Grava em <code className="text-[11px]">CNPJ/ano/mês/</code>. Estado do NSU:{' '}
               <code className="text-[11px]">.cte-dist-state.json</code>. Arquivos existentes não são sobrescritos.
             </p>
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+              É normal a AN devolver <strong>muitos</strong> ficheiros <code className="text-[11px]">*_evento_*.xml</code> (carta de
+              correção, cancelamento, manifestação, etc.) por cada CT-e, e <strong>um</strong> <code className="text-[11px]">*_procCTe.xml</code>{' '}
+              por chave quando o lote traz o CT-e autorizado completo. Se esse <code className="text-[11px]">procCTe</code> já existir na
+              pasta, nova sincronização marca como &quot;já existente&quot; e só acrescenta eventos novos.
+            </p>
 
             <div className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-[var(--text-secondary)]">
               <strong className="text-[var(--text-primary)]">Atenção:</strong> excesso de consultas pode gerar{' '}

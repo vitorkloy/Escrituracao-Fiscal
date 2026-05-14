@@ -66,10 +66,12 @@ export function inferirTipoArquivoDistDfeCte(schema: string, xml: string): DistD
   if (s.includes('evento')) return 'evento'
 
   const x = xml ?? ''
-  if (/<(?:[\w.-]+:)?cteProc\b/i.test(x)) return 'procCTe'
+  // AN pode entregar o CT-e autorizado como <cteProc> (layout antigo) ou <procCTe> (raiz comum no docZip).
+  if (/<(?:[\w.-]+:)?cteProc\b/i.test(x) || /<(?:[\w.-]+:)?procCTe\b/i.test(x)) return 'procCTe'
   if (/<(?:[\w.-]+:)?procEventoCTe\b/i.test(x) || /<(?:[\w.-]+:)?procEventoCte\b/i.test(x)) return 'evento'
   if (/<(?:[\w.-]+:)?resCTe\b/i.test(x)) return 'resCTe'
-  if (/<(?:[\w.-]+:)?resEvento\b/i.test(x) && /cte/i.test(x)) return 'evento'
+  // resEvento de CT-e: exige chCTe no XML (evita falso positivo com resEvento de outros documentos).
+  if (/<(?:[\w.-]+:)?resEvento\b/i.test(x) && /<(?:[\w.-]+:)?chCTe\b/i.test(x)) return 'evento'
   return 'outro'
 }
 

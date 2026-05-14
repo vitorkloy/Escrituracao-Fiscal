@@ -297,10 +297,12 @@ export function inferirTipoArquivoDistDfe(schema: string, xml: string): DistDfeA
   if (s.includes('evento')) return 'evento'
 
   const x = xml ?? ''
-  if (/<(?:[\w.-]+:)?nfeProc\b/i.test(x)) return 'procNFe'
+  // AN costuma entregar o pacote autorizado como <nfeProc>; alguns docZips podem usar <procNFe> como raiz.
+  if (/<(?:[\w.-]+:)?nfeProc\b/i.test(x) || /<(?:[\w.-]+:)?procNFe\b/i.test(x)) return 'procNFe'
   if (/<(?:[\w.-]+:)?procEventoNFe\b/i.test(x)) return 'evento'
   if (/<(?:[\w.-]+:)?resNFe\b/i.test(x)) return 'resNFe'
-  if (/<(?:[\w.-]+:)?resEvento\b/i.test(x)) return 'evento'
+  // resEvento de NF-e: exige chNFe (evita falso positivo com resEvento de outros serviços/contextos).
+  if (/<(?:[\w.-]+:)?resEvento\b/i.test(x) && /<(?:[\w.-]+:)?chNFe\b/i.test(x)) return 'evento'
   return 'outro'
 }
 
