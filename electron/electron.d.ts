@@ -334,6 +334,22 @@ declare global {
           cancelados: string[]
           xMotivo?: string
         }>
+        listarXmlsNotas(pastaSaida: string): Promise<{
+          ok: boolean
+          totalXml: number
+          totalElegiveis: number
+          arquivos: string[]
+          xMotivo?: string
+        }>
+        gerarNotasXlsx(pastaSaida: string): Promise<{
+          ok: boolean
+          arquivo?: string
+          caminhoCompleto?: string
+          notas?: number
+          itens?: number
+          falhas?: number
+          xMotivo?: string
+        }>
       }
       xmlRetencao: {
         selecionarXmls(): Promise<string[]>

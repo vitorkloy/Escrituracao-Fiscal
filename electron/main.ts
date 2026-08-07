@@ -43,6 +43,10 @@ import {
   destinoUnicoNoDir,
 } from './xml-retencao'
 import { attachUpdaterListeners, registerUpdaterIpc, scheduleInitialUpdateCheck } from './updater'
+import {
+  gerarRelatorioNotasNaPasta,
+  listarXmlsElegiveisNotas,
+} from './relatorio-notas-fsist'
 
 const execAsync = promisify(exec)
 const execFileAsync = promisify(execFile)
@@ -2294,4 +2298,31 @@ ipcMain.handle('relatorio:listar-xmls', async (_e, pastaSaida: string) => {
       xMotivo: mensagemErro(err),
     }
   }
+})
+
+// Relatório Notas estilo FSist (1 linha por item, varredura recursiva)
+ipcMain.handle('relatorio:listar-xmls-notas', async (_e, pastaSaida: string) => {
+  try {
+    if (!pastaSaida) throw new Error('Pasta de destino não informada.')
+    if (!fs.existsSync(pastaSaida)) throw new Error('Pasta de destino não encontrada.')
+    const r = listarXmlsElegiveisNotas(pastaSaida)
+    return {
+      ok: true,
+      totalXml: r.totalXml,
+      totalElegiveis: r.totalElegiveis,
+      arquivos: r.elegiveis,
+    }
+  } catch (err: unknown) {
+    return {
+      ok: false,
+      totalXml: 0,
+      totalElegiveis: 0,
+      arquivos: [] as string[],
+      xMotivo: mensagemErro(err),
+    }
+  }
+})
+
+ipcMain.handle('relatorio:notas-xlsx', async (_e, pastaSaida: string) => {
+  return gerarRelatorioNotasNaPasta(pastaSaida)
 })

@@ -12,11 +12,14 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
   const { isElectron } = useIsElectron()
   const [pasta, setPasta] = useState<string>('')
   const [isGerando, setIsGerando] = useState(false)
+  const [isGerandoNotas, setIsGerandoNotas] = useState(false)
   const [isCarregandoXmls, setIsCarregandoXmls] = useState(false)
   const [xmlArquivos, setXmlArquivos] = useState<string[]>([])
   const [xmlCancelados, setXmlCancelados] = useState<string[]>([])
   const [qtdXmlFormatoLegado, setQtdXmlFormatoLegado] = useState(0)
   const [qtdXmlFormatoChave44, setQtdXmlFormatoChave44] = useState(0)
+  const [xmlsNotas, setXmlsNotas] = useState<string[]>([])
+  const [totalXmlArvore, setTotalXmlArvore] = useState(0)
 
   async function carregarPreviewXmls(pastaAlvo: string) {
     if (!isElectron || !pastaAlvo) {
@@ -24,28 +27,44 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
       setXmlCancelados([])
       setQtdXmlFormatoLegado(0)
       setQtdXmlFormatoChave44(0)
+      setXmlsNotas([])
+      setTotalXmlArvore(0)
       return
     }
     setIsCarregandoXmls(true)
     try {
-      const resp = await window.electron.relatorio.listarXmls(pastaAlvo)
+      const [resp, respNotas] = await Promise.all([
+        window.electron.relatorio.listarXmls(pastaAlvo),
+        window.electron.relatorio.listarXmlsNotas(pastaAlvo),
+      ])
       if (!resp.ok) {
         setXmlArquivos([])
         setXmlCancelados([])
         setQtdXmlFormatoLegado(0)
         setQtdXmlFormatoChave44(0)
         showToast('erro', resp.xMotivo ?? 'Falha ao listar XMLs.')
-        return
+      } else {
+        setXmlArquivos(resp.arquivos ?? [])
+        setXmlCancelados(resp.cancelados ?? [])
+        setQtdXmlFormatoLegado(resp.totalFormatoLegado ?? 0)
+        setQtdXmlFormatoChave44(resp.totalFormatoChave44 ?? 0)
       }
-      setXmlArquivos(resp.arquivos ?? [])
-      setXmlCancelados(resp.cancelados ?? [])
-      setQtdXmlFormatoLegado(resp.totalFormatoLegado ?? 0)
-      setQtdXmlFormatoChave44(resp.totalFormatoChave44 ?? 0)
+
+      if (!respNotas.ok) {
+        setXmlsNotas([])
+        setTotalXmlArvore(0)
+        showToast('erro', respNotas.xMotivo ?? 'Falha ao listar XMLs para relatório Notas.')
+      } else {
+        setXmlsNotas(respNotas.arquivos ?? [])
+        setTotalXmlArvore(respNotas.totalXml ?? 0)
+      }
     } catch (err) {
       setXmlArquivos([])
       setXmlCancelados([])
       setQtdXmlFormatoLegado(0)
       setQtdXmlFormatoChave44(0)
+      setXmlsNotas([])
+      setTotalXmlArvore(0)
       showToast('erro', err instanceof Error ? err.message : 'Erro ao listar XMLs.')
     } finally {
       setIsCarregandoXmls(false)
@@ -101,41 +120,62 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
     }
   }
 
+  async function gerarNotasXlsx() {
+    if (!isElectron) {
+      showToast('erro', 'Funcionalidade disponível apenas no aplicativo desktop.')
+      return
+    }
+    if (!pasta) {
+      showToast('erro', 'Selecione a pasta onde estão os XMLs.')
+      return
+    }
+
+    setIsGerandoNotas(true)
+    try {
+      const resp = await window.electron.relatorio.gerarNotasXlsx(pasta)
+      if (!resp.ok) {
+        showToast('erro', resp.xMotivo ?? 'Falha ao gerar o relatório Notas.')
+        return
+      }
+      const notas = resp.notas ?? 0
+      const itens = resp.itens ?? 0
+      const falhas = resp.falhas ?? 0
+      const arquivo = resp.arquivo ?? 'relatorio_notas.xlsx'
+      showToast(
+        'ok',
+        falhas > 0
+          ? `Relatório Notas gerado (${notas} nota(s), ${itens} item(ns), ${falhas} falha(s)): ${arquivo}`
+          : `Relatório Notas gerado (${notas} nota(s), ${itens} item(ns)): ${arquivo}`
+      )
+    } catch (err) {
+      showToast('erro', err instanceof Error ? err.message : 'Erro ao gerar relatório Notas.')
+    } finally {
+      setIsGerandoNotas(false)
+    }
+  }
+
+  const ocupado = isGerando || isGerandoNotas
+
   return (
     <div className="fade-in flex flex-col h-full">
       <div className="p-6 pb-4 border-b border-[var(--border)]">
         <h2 className="text-xl font-semibold mb-4 text-[var(--text-primary)]">
-          Relatório interno (XLSX)
+          Relatórios (XLSX)
         </h2>
 
         <p className="text-sm text-[var(--text-secondary)] mb-4">
-          Gera um comparativo a partir de quaisquer arquivos <span className="font-mono">.xml</span> salvos na
-          pasta.
+          Selecione a pasta com os XMLs. O comparativo NFC-e usa a pasta plana; o relatório Notas
+          percorre subpastas (ex.: DistDFe <span className="font-mono">CNPJ/ano/mês</span>).
         </p>
-        {(qtdXmlFormatoChave44 > 0 || qtdXmlFormatoLegado > 0) && (
-          <p className="text-xs text-[var(--text-secondary)] mb-3">
-            Formatos identificados na pasta: <span className="font-mono">{qtdXmlFormatoChave44}</span> arquivo(s){' '}
-            <span className="font-mono">[chave44].xml</span> e <span className="font-mono">{qtdXmlFormatoLegado}</span>{' '}
-            arquivo(s) <span className="font-mono">*_nfce.xml</span>.
-          </p>
-        )}
 
         <div className="flex gap-3">
           <button
             type="button"
             onClick={selecionarPasta}
             className="flex-1 py-2.5 rounded text-sm font-semibold transition-all no-drag bg-[var(--bg-raised)] border border-[var(--border)] text-[var(--text-primary)]"
-            disabled={isGerando}
+            disabled={ocupado}
           >
             {pasta ? 'Trocar pasta' : 'Selecionar pasta'}
-          </button>
-          <button
-            type="button"
-            onClick={gerarXlsx}
-            disabled={isGerando || !pasta}
-            className="flex items-center justify-center px-5 py-2.5 rounded text-sm font-semibold no-drag bg-[var(--teal-glow)] border border-[var(--teal-dim)] text-[var(--teal)] disabled:opacity-60"
-          >
-            {isGerando ? 'Gerando...' : 'Gerar XLSX'}
           </button>
         </div>
 
@@ -149,86 +189,161 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
             {pasta || '—'}
           </p>
         </div>
-
-        <div className="mt-4 rounded border border-[var(--border)] bg-[var(--bg-raised)] p-3">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs uppercase tracking-widest text-[var(--text-muted)]">
-              Prévia dos XMLs
-            </p>
-            <span className="text-xs text-[var(--text-secondary)]">
-              Total encontrado: <span className="font-semibold text-[var(--text-primary)]">{xmlArquivos.length}</span>
-            </span>
-          </div>
-
-          {isCarregandoXmls ? (
-            <p className="text-xs text-[var(--text-muted)]">Carregando arquivos…</p>
-          ) : xmlArquivos.length === 0 ? (
-            <p className="text-xs text-[var(--text-muted)]">Nenhum arquivo XML encontrado.</p>
-          ) : (
-            <div className="max-h-32 overflow-auto rounded border border-[var(--border)] bg-[var(--bg-surface)]">
-              {xmlArquivos.slice(0, 10).map((arquivo) => (
-                <div
-                  key={arquivo}
-                  className="px-2 py-1 text-xs font-mono border-b border-[var(--border)] last:border-b-0 text-[var(--text-primary)]"
-                  title={arquivo}
-                >
-                  {arquivo}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {xmlArquivos.length > 10 && (
-            <p className="mt-2 text-[11px] text-[var(--text-muted)]">
-              Mostrando 10 de {xmlArquivos.length} arquivos.
-            </p>
-          )}
-        </div>
-
-        <div className="mt-3 rounded border border-[var(--border)] bg-[var(--bg-raised)] p-3">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs uppercase tracking-widest text-[var(--text-muted)]">
-              Prévia dos cancelados
-            </p>
-            <span className="text-xs text-[var(--text-secondary)]">
-              Total cancelados:{' '}
-              <span className="font-semibold text-[var(--text-primary)]">{xmlCancelados.length}</span>
-            </span>
-          </div>
-
-          {isCarregandoXmls ? (
-            <p className="text-xs text-[var(--text-muted)]">Carregando arquivos…</p>
-          ) : xmlCancelados.length === 0 ? (
-            <p className="text-xs text-[var(--text-muted)]">0 cancelados</p>
-          ) : (
-            <div className="max-h-32 overflow-auto rounded border border-[var(--border)] bg-[var(--bg-surface)]">
-              {xmlCancelados.slice(0, 10).map((arquivo) => (
-                <div
-                  key={arquivo}
-                  className="px-2 py-1 text-xs font-mono border-b border-[var(--border)] last:border-b-0 text-[var(--text-primary)]"
-                  title={arquivo}
-                >
-                  {arquivo}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {xmlCancelados.length > 10 && (
-            <p className="mt-2 text-[11px] text-[var(--text-muted)]">
-              Mostrando 10 de {xmlCancelados.length} cancelados.
-            </p>
-          )}
-        </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-6">
-        <p className="text-sm text-[var(--text-muted)]">
-          Serão gerados os arquivos <span className="font-mono">comparativo_aprovado.xlsx</span> e{' '}
-          <span className="font-mono">comparativo_cancelamento.xlsx</span> dentro da pasta selecionada.
-        </p>
+      <div className="flex-1 overflow-auto p-6 space-y-8">
+        {/* Comparativo NFC-e */}
+        <section>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-primary)] mb-2">
+            Comparativo NFC-e
+          </h3>
+          <p className="text-sm text-[var(--text-secondary)] mb-3">
+            Gera <span className="font-mono">comparativo_aprovado.xlsx</span> e{' '}
+            <span className="font-mono">comparativo_cancelamento.xlsx</span> (1 linha por cupom) a
+            partir dos XMLs na raiz da pasta.
+          </p>
+          {(qtdXmlFormatoChave44 > 0 || qtdXmlFormatoLegado > 0) && (
+            <p className="text-xs text-[var(--text-secondary)] mb-3">
+              Formatos identificados: <span className="font-mono">{qtdXmlFormatoChave44}</span>{' '}
+              <span className="font-mono">[chave44].xml</span> e{' '}
+              <span className="font-mono">{qtdXmlFormatoLegado}</span>{' '}
+              <span className="font-mono">*_nfce.xml</span>.
+            </p>
+          )}
+
+          <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-3 mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs uppercase tracking-widest text-[var(--text-muted)]">
+                Prévia dos XMLs (raiz)
+              </p>
+              <span className="text-xs text-[var(--text-secondary)]">
+                Total:{' '}
+                <span className="font-semibold text-[var(--text-primary)]">{xmlArquivos.length}</span>
+              </span>
+            </div>
+            {isCarregandoXmls ? (
+              <p className="text-xs text-[var(--text-muted)]">Carregando arquivos…</p>
+            ) : xmlArquivos.length === 0 ? (
+              <p className="text-xs text-[var(--text-muted)]">Nenhum arquivo XML na raiz.</p>
+            ) : (
+              <div className="max-h-32 overflow-auto rounded border border-[var(--border)] bg-[var(--bg-surface)]">
+                {xmlArquivos.slice(0, 10).map((arquivo) => (
+                  <div
+                    key={arquivo}
+                    className="px-2 py-1 text-xs font-mono border-b border-[var(--border)] last:border-b-0 text-[var(--text-primary)]"
+                    title={arquivo}
+                  >
+                    {arquivo}
+                  </div>
+                ))}
+              </div>
+            )}
+            {xmlArquivos.length > 10 && (
+              <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+                Mostrando 10 de {xmlArquivos.length} arquivos.
+              </p>
+            )}
+          </div>
+
+          <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-3 mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs uppercase tracking-widest text-[var(--text-muted)]">
+                Prévia dos cancelados
+              </p>
+              <span className="text-xs text-[var(--text-secondary)]">
+                Total cancelados:{' '}
+                <span className="font-semibold text-[var(--text-primary)]">{xmlCancelados.length}</span>
+              </span>
+            </div>
+            {isCarregandoXmls ? (
+              <p className="text-xs text-[var(--text-muted)]">Carregando arquivos…</p>
+            ) : xmlCancelados.length === 0 ? (
+              <p className="text-xs text-[var(--text-muted)]">0 cancelados</p>
+            ) : (
+              <div className="max-h-32 overflow-auto rounded border border-[var(--border)] bg-[var(--bg-surface)]">
+                {xmlCancelados.slice(0, 10).map((arquivo) => (
+                  <div
+                    key={arquivo}
+                    className="px-2 py-1 text-xs font-mono border-b border-[var(--border)] last:border-b-0 text-[var(--text-primary)]"
+                    title={arquivo}
+                  >
+                    {arquivo}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={gerarXlsx}
+            disabled={ocupado || !pasta}
+            className="flex items-center justify-center px-5 py-2.5 rounded text-sm font-semibold no-drag bg-[var(--teal-glow)] border border-[var(--teal-dim)] text-[var(--teal)] disabled:opacity-60"
+          >
+            {isGerando ? 'Gerando…' : 'Gerar comparativo NFC-e'}
+          </button>
+        </section>
+
+        {/* Relatório Notas estilo FSist */}
+        <section>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-primary)] mb-2">
+            Relatório Notas (itens)
+          </h3>
+          <p className="text-sm text-[var(--text-secondary)] mb-3">
+            Estilo FSist: aba <span className="font-mono">Notas</span>, 1 linha por item (chave,
+            emitente/destinatário, produto, NCM, CFOP, ICMS, IPI…). Gera{' '}
+            <span className="font-mono">… - relatorio_notas.xlsx</span> na pasta selecionada.
+          </p>
+
+          <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-3 mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs uppercase tracking-widest text-[var(--text-muted)]">
+                Prévia (árvore)
+              </p>
+              <span className="text-xs text-[var(--text-secondary)]">
+                Elegíveis:{' '}
+                <span className="font-semibold text-[var(--text-primary)]">{xmlsNotas.length}</span>
+                {totalXmlArvore > 0 && (
+                  <span className="text-[var(--text-muted)]"> / {totalXmlArvore} XML(s)</span>
+                )}
+              </span>
+            </div>
+            {isCarregandoXmls ? (
+              <p className="text-xs text-[var(--text-muted)]">Carregando arquivos…</p>
+            ) : xmlsNotas.length === 0 ? (
+              <p className="text-xs text-[var(--text-muted)]">
+                Nenhum XML com itens (NF-e/NFC-e) encontrado na pasta ou subpastas.
+              </p>
+            ) : (
+              <div className="max-h-40 overflow-auto rounded border border-[var(--border)] bg-[var(--bg-surface)]">
+                {xmlsNotas.slice(0, 15).map((arquivo) => (
+                  <div
+                    key={arquivo}
+                    className="px-2 py-1 text-xs font-mono border-b border-[var(--border)] last:border-b-0 text-[var(--text-primary)]"
+                    title={arquivo}
+                  >
+                    {arquivo}
+                  </div>
+                ))}
+              </div>
+            )}
+            {xmlsNotas.length > 15 && (
+              <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+                Mostrando 15 de {xmlsNotas.length} arquivos.
+              </p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void gerarNotasXlsx()}
+            disabled={ocupado || !pasta}
+            className="flex items-center justify-center px-5 py-2.5 rounded text-sm font-semibold no-drag bg-[var(--teal-glow)] border border-[var(--teal-dim)] text-[var(--teal)] disabled:opacity-60"
+          >
+            {isGerandoNotas ? 'Gerando…' : 'Gerar relatório Notas'}
+          </button>
+        </section>
       </div>
     </div>
   )
 }
-

@@ -168,6 +168,10 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.invoke('relatorio:comparativo-xlsx', pastaSaida),
     listarXmls: (pastaSaida: string) =>
       ipcRenderer.invoke('relatorio:listar-xmls', pastaSaida),
+    listarXmlsNotas: (pastaSaida: string) =>
+      ipcRenderer.invoke('relatorio:listar-xmls-notas', pastaSaida),
+    gerarNotasXlsx: (pastaSaida: string) =>
+      ipcRenderer.invoke('relatorio:notas-xlsx', pastaSaida),
   },
 
   xmlRetencao: {
