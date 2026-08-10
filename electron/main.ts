@@ -2311,6 +2311,7 @@ ipcMain.handle('relatorio:listar-xmls-notas', async (_e, pastaSaida: string) => 
       totalXml: r.totalXml,
       totalElegiveis: r.totalElegiveis,
       arquivos: r.elegiveis,
+      ignorados: r.ignorados,
     }
   } catch (err: unknown) {
     return {
@@ -2318,6 +2319,7 @@ ipcMain.handle('relatorio:listar-xmls-notas', async (_e, pastaSaida: string) => 
       totalXml: 0,
       totalElegiveis: 0,
       arquivos: [] as string[],
+      ignorados: [] as Array<{ relativo: string; motivo: string }>,
       xMotivo: mensagemErro(err),
     }
   }

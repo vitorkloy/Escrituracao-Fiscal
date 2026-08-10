@@ -339,15 +339,19 @@ declare global {
           totalXml: number
           totalElegiveis: number
           arquivos: string[]
+          ignorados?: Array<{ relativo: string; motivo: string }>
           xMotivo?: string
         }>
         gerarNotasXlsx(pastaSaida: string): Promise<{
           ok: boolean
           arquivo?: string
           caminhoCompleto?: string
+          diagnostico?: string
           notas?: number
           itens?: number
           falhas?: number
+          ignorados?: Array<{ relativo: string; motivo: string }>
+          avisos?: string[]
           xMotivo?: string
         }>
       }

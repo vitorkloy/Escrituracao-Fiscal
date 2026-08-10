@@ -140,13 +140,14 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
       const notas = resp.notas ?? 0
       const itens = resp.itens ?? 0
       const falhas = resp.falhas ?? 0
+      const ignorados = resp.ignorados?.length ?? 0
       const arquivo = resp.arquivo ?? 'relatorio_notas.xlsx'
-      showToast(
-        'ok',
-        falhas > 0
-          ? `Relatório Notas gerado (${notas} nota(s), ${itens} item(ns), ${falhas} falha(s)): ${arquivo}`
-          : `Relatório Notas gerado (${notas} nota(s), ${itens} item(ns)): ${arquivo}`
-      )
+      const diag = resp.diagnostico ? ` Diagnóstico: ${resp.diagnostico}.` : ''
+      const extra =
+        falhas > 0 || ignorados > 0
+          ? ` (${falhas} falha(s), ${ignorados} arquivo(s) ignorado(s)/substituído(s)).`
+          : '.'
+      showToast('ok', `Relatório Notas: ${notas} nota(s), ${itens} item(ns) → ${arquivo}.${extra}${diag}`)
     } catch (err) {
       showToast('erro', err instanceof Error ? err.message : 'Erro ao gerar relatório Notas.')
     } finally {
@@ -290,9 +291,10 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
             Relatório Notas (itens)
           </h3>
           <p className="text-sm text-[var(--text-secondary)] mb-3">
-            Estilo FSist: aba <span className="font-mono">Notas</span>, 1 linha por item (chave,
-            emitente/destinatário, produto, NCM, CFOP, ICMS, IPI…). Gera{' '}
-            <span className="font-mono">… - relatorio_notas.xlsx</span> na pasta selecionada.
+            Estilo FSist ampliado (56 colunas): 1 linha por item, deduplicação por chave (prefere{' '}
+            <span className="font-mono">procNFe</span>), PIS/COFINS/IBS/CBS quando existirem. Gera o
+            XLSX e um <span className="font-mono">*-diagnostico.txt</span> listando arquivos
+            ignorados.
           </p>
 
           <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-3 mb-3">
