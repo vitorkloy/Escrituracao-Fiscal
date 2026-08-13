@@ -3,7 +3,7 @@ import path from 'path'
 import ExcelJS from 'exceljs'
 import { XMLParser } from 'fast-xml-parser'
 
-/** Uma linha do relatório Notas — 1 item por linha (layout ampliado 56 colunas). */
+/** Uma linha do relatório Notas — 1 item por linha (layout FSist 61 colunas). */
 export interface RelatorioNotasLinha {
   chave: string
   numero: string
@@ -61,6 +61,11 @@ export interface RelatorioNotasLinha {
   cbsValor: number | null
   indPres: string
   pRedBc: number | null
+  pRedBcSt: number | null
+  pRedBcEfet: number | null
+  tpNFDebito: string
+  tpNFCredito: string
+  finNFe: string
 }
 
 export interface RelatorioNotasCabecalho {
@@ -78,7 +83,7 @@ export interface RelatorioNotasScanResult {
   relativos: string[]
 }
 
-/** Cabeçalhos idênticos ao relatório de referência (56 colunas). */
+/** Cabeçalhos idênticos ao relatório de referência FSist (61 colunas). */
 export const HEADERS_NOTAS = [
   'Chave',
   'Número',
@@ -136,6 +141,11 @@ export const HEADERS_NOTAS = [
   'Valor CBS',
   'indPres',
   'pRedBC',
+  'pRedBCST',
+  'pRedBCEfet',
+  'tpNFDebito',
+  'tpNFCredito',
+  'finNFe',
 ] as const
 
 const xmlParser = new XMLParser({
@@ -294,6 +304,8 @@ function extrairIcms(imposto: unknown): {
   pIcms: number | null
   vIcms: number | null
   pRedBc: number | null
+  pRedBcSt: number | null
+  pRedBcEfet: number | null
 } {
   const icms = (imposto as Record<string, unknown> | undefined)?.ICMS ?? imposto
   const g = primeiroGrupoImposto(icms)
@@ -303,6 +315,8 @@ function extrairIcms(imposto: unknown): {
     pIcms: numCampo(g, 'pICMS') ?? parseNumeroXml(encontrarTexto(icms, 'pICMS')),
     vIcms: numCampo(g, 'vICMS') ?? parseNumeroXml(encontrarTexto(icms, 'vICMS')),
     pRedBc: numCampo(g, 'pRedBC') ?? parseNumeroXml(encontrarTexto(icms, 'pRedBC')),
+    pRedBcSt: numCampo(g, 'pRedBCST') ?? parseNumeroXml(encontrarTexto(icms, 'pRedBCST')),
+    pRedBcEfet: numCampo(g, 'pRedBCEfet') ?? parseNumeroXml(encontrarTexto(icms, 'pRedBCEfet')),
   }
 }
 
@@ -598,6 +612,9 @@ export function extrairLinhasRelatorioNotas(xmlStr: string): {
   const modelo = strCampo(ide, 'mod')
   const emissao = formatarDhEmiRelatorio(strCampo(ide, 'dhEmi') || strCampo(ide, 'dEmi'))
   const indPres = strCampo(ide, 'indPres')
+  const tpNFDebito = strCampo(ide, 'tpNFDebito')
+  const tpNFCredito = strCampo(ide, 'tpNFCredito')
+  const finNFe = strCampo(ide, 'finNFe')
 
   const emitenteDoc = extrairDocPessoaObj(emit)
   const emitenteNome = strCampo(emit, 'xNome')
@@ -687,6 +704,11 @@ export function extrairLinhasRelatorioNotas(xmlStr: string): {
       cbsValor: ibs.cbsValor,
       indPres,
       pRedBc: icms.pRedBc,
+      pRedBcSt: icms.pRedBcSt,
+      pRedBcEfet: icms.pRedBcEfet,
+      tpNFDebito,
+      tpNFCredito,
+      finNFe,
     })
   }
 
@@ -751,6 +773,11 @@ function linhaParaArray(l: RelatorioNotasLinha): (string | number | null)[] {
     l.cbsValor,
     l.indPres,
     l.pRedBc,
+    l.pRedBcSt,
+    l.pRedBcEfet,
+    l.tpNFDebito,
+    l.tpNFCredito,
+    l.finNFe,
   ]
 }
 
@@ -773,7 +800,7 @@ export async function gerarRelatorioNotasXlsxBuffer(
   // Colunas numéricas (1-based): Qtd=20, valores monetários/alíquotas
   const numFmtCols = new Set([
     20, 21, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 36, 37, 38, 41, 42, 43, 44, 45, 46, 47, 48,
-    49, 50, 51, 52, 53, 54, 56,
+    49, 50, 51, 52, 53, 54, 56, 57, 58,
   ])
 
   for (const l of linhas) {

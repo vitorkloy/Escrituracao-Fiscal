@@ -291,7 +291,7 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
             Relatório Notas (itens)
           </h3>
           <p className="text-sm text-[var(--text-secondary)] mb-3">
-            Estilo FSist ampliado (56 colunas): 1 linha por item, deduplicação por chave (prefere{' '}
+            Estilo FSist ampliado (61 colunas): 1 linha por item, deduplicação por chave (prefere{' '}
             <span className="font-mono">procNFe</span>), PIS/COFINS/IBS/CBS quando existirem. Gera o
             XLSX e um <span className="font-mono">*-diagnostico.txt</span> listando arquivos
             ignorados.
