@@ -421,16 +421,23 @@ function extrairIbsCbs(imposto: unknown): {
 }
 
 /**
- * Conta tags `<det nItem="...">` de produto (ignora detEvento / detPag).
+ * Conta blocos `<det>` de produto (ignora detEvento / detPag).
+ * Aceita `nItem` como atributo (`<det nItem="1">`) ou elemento filho (`<det><nItem>1</nItem>`).
  */
 export function contarDetItensNoXml(xmlStr: string): number {
-  const re = /<(?:[\w.-]+:)?det\b(?![A-Za-z0-9_])[^>]*\bnItem\s*=/gi
-  return (xmlStr.match(re) ?? []).length
+  const re = /<(?:[\w.-]+:)?det\b(?![A-Za-z0-9_])/gi
+  let count = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(xmlStr)) !== null) {
+    const snippet = xmlStr.slice(m.index, m.index + 1500)
+    if (/<(?:[\w.-]+:)?prod\b/i.test(snippet)) count++
+  }
+  return count
 }
 
 export function xmlElegivelRelatorioNotas(conteudo: string): boolean {
   if (!/<(?:[\w.-]+:)?infNFe\b/i.test(conteudo)) return false
-  return contarDetItensNoXml(conteudo) > 0 || /<(?:[\w.-]+:)?det\b[^>]*\bnItem\s*=/i.test(conteudo)
+  return contarDetItensNoXml(conteudo) > 0
 }
 
 function ehArquivoEventoPorNome(nome: string): boolean {
@@ -641,7 +648,7 @@ export function extrairLinhasRelatorioNotas(xmlStr: string): {
     const det = dets[i] as Record<string, unknown>
     const prod = det.prod ?? {}
     const imposto = det.imposto ?? {}
-    const nItem = texto(det['@_nItem']) || String(i + 1)
+    const nItem = texto(det['@_nItem']) || strCampo(det, 'nItem') || String(i + 1)
     const icms = extrairIcms(imposto)
     const pis = extrairPisCofins(imposto, 'PIS')
     const cofins = extrairPisCofins(imposto, 'COFINS')
