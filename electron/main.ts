@@ -30,6 +30,11 @@ import {
 import type { DistDfeFiltroPapel } from './nfe-dist-dfe-parser'
 import { sincronizarDistDfeNfe, carregarUltNsu } from './nfe-dist-dfe-sync'
 import type { NfeDistDfeSyncProgresso } from './nfe-dist-dfe-sync'
+import {
+  buscarProcNfeFaltantes,
+  listarChavesNfeSemProc,
+  type NfeBuscarProcProgresso,
+} from './nfe-buscar-proc-faltantes'
 import { sincronizarDistDfeCte, carregarUltNsuCte } from './cte-dist-dfe-sync'
 import type { CteDistDfeSyncProgresso } from './cte-dist-dfe-sync'
 import { listarXmlsCteSalvos, type CteXmlSalvoInfo } from './cte-list-xmls-local'
@@ -1677,6 +1682,90 @@ ipcMain.handle(
       return { ok: true, arquivos, total: arquivos.length }
     } catch (err: unknown) {
       return { ok: false, arquivos: [], xMotivo: mensagemErro(err) }
+    }
+  }
+)
+
+ipcMain.handle('nfe:listar-chaves-sem-proc', (_e, pastaRaiz: string, cnpj14: string) => {
+  try {
+    const pr = String(pastaRaiz ?? '').trim()
+    const cj = String(cnpj14 ?? '').replace(/\D/g, '')
+    if (!pr || cj.length !== 14) return { ok: false, chaves: [] as string[], xMotivo: 'Pasta ou CNPJ inválido.' }
+    const chaves = listarChavesNfeSemProc(pr, cj)
+    return { ok: true, chaves, total: chaves.length }
+  } catch (err: unknown) {
+    return { ok: false, chaves: [] as string[], xMotivo: mensagemErro(err) }
+  }
+})
+
+function enviarProgressoBuscarProcNfe(p: NfeBuscarProcProgresso) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('nfe:buscar-proc-progress', p)
+  }
+}
+
+ipcMain.handle(
+  'nfe:buscar-proc-faltantes',
+  async (
+    _e,
+    config: ConfigCert & { thumbprint?: string },
+    opts: {
+      pastaRaiz: string
+      cnpj14: string
+      tpAmb?: '1' | '2'
+      ambienteEndpoint?: 'producao' | 'homologacao'
+      maxConsultas?: number
+    }
+  ) => {
+    let pfxPath = ''
+    let tmpCriado = false
+    try {
+      const pastaRaiz = String(opts?.pastaRaiz ?? '').trim()
+      const cnpj14 = String(opts?.cnpj14 ?? '').replace(/\D/g, '')
+      if (!pastaRaiz || cnpj14.length !== 14) {
+        return {
+          ok: false,
+          candidatos: 0,
+          tentadas: 0,
+          salvos: 0,
+          ignorados: 0,
+          falhas: 0,
+          semProcNaResposta: 0,
+          puladosUf: 0,
+          log: [] as string[],
+          xMotivo: 'Pasta ou CNPJ inválido.',
+        }
+      }
+      const resolved = await resolverPfx(config)
+      pfxPath = resolved.pfxPath
+      tmpCriado = resolved.tmpCriado
+      const cfg = { ...config, pfxPath, senha: resolved.senha }
+      const agente = criarAgente(cfg.pfxPath, cfg.senha)
+      return await buscarProcNfeFaltantes({
+        config: cfg,
+        agente,
+        pastaRaiz,
+        cnpj14,
+        tpAmb: opts?.tpAmb === '2' ? '2' : '1',
+        ambienteEndpoint: opts?.ambienteEndpoint === 'homologacao' ? 'homologacao' : 'producao',
+        maxConsultas: opts?.maxConsultas,
+        onProgress: enviarProgressoBuscarProcNfe,
+      })
+    } catch (err: unknown) {
+      return {
+        ok: false,
+        candidatos: 0,
+        tentadas: 0,
+        salvos: 0,
+        ignorados: 0,
+        falhas: 0,
+        semProcNaResposta: 0,
+        puladosUf: 0,
+        log: [] as string[],
+        xMotivo: mensagemErro(err),
+      }
+    } finally {
+      if (tmpCriado && pfxPath) limparPfxTemp(pfxPath)
     }
   }
 )

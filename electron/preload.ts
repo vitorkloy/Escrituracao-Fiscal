@@ -86,6 +86,32 @@ contextBridge.exposeInMainWorld('electron', {
       cnpj14: string,
       filtro?: { ano?: string; mes?: string }
     ) => ipcRenderer.invoke('nfe:listar-xmls-salvos', pastaRaiz, cnpj14, filtro),
+    listarChavesSemProc: (pastaRaiz: string, cnpj14: string) =>
+      ipcRenderer.invoke('nfe:listar-chaves-sem-proc', pastaRaiz, cnpj14),
+    buscarProcFaltantes: (
+      config: ConfigCert & { thumbprint?: string },
+      opts: {
+        pastaRaiz: string
+        cnpj14: string
+        tpAmb?: '1' | '2'
+        ambienteEndpoint?: 'producao' | 'homologacao'
+        maxConsultas?: number
+      }
+    ) => ipcRenderer.invoke('nfe:buscar-proc-faltantes', config, opts),
+    onBuscarProcProgress: (cb: (p: {
+      tipo: 'inicio' | 'chave' | 'concluido' | 'erro'
+      chave?: string
+      indice?: number
+      total?: number
+      mensagem?: string
+      salvos?: number
+      falhas?: number
+      semProc?: number
+    }) => void) => {
+      const fn = (_e: Electron.IpcRendererEvent, p: Parameters<typeof cb>[0]) => cb(p)
+      ipcRenderer.on('nfe:buscar-proc-progress', fn)
+      return () => ipcRenderer.removeListener('nfe:buscar-proc-progress', fn)
+    },
     onSyncDistProgress: (cb: (p: {
       tipo: 'lote' | 'concluido' | 'erro'
       ultNSU?: string

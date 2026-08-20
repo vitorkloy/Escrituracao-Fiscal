@@ -306,6 +306,43 @@ declare global {
           cnpj14: string,
           filtro?: { ano?: string; mes?: string }
         ): Promise<{ ok: boolean; arquivos?: NfeXmlSalvoInfo[]; total?: number; xMotivo?: string }>
+        listarChavesSemProc(
+          pastaRaiz: string,
+          cnpj14: string
+        ): Promise<{ ok: boolean; chaves?: string[]; total?: number; xMotivo?: string }>
+        buscarProcFaltantes(
+          config: SefazConfig,
+          opts: {
+            pastaRaiz: string
+            cnpj14: string
+            tpAmb?: '1' | '2'
+            ambienteEndpoint?: 'producao' | 'homologacao'
+            maxConsultas?: number
+          }
+        ): Promise<{
+          ok: boolean
+          candidatos: number
+          tentadas: number
+          salvos: number
+          ignorados: number
+          falhas: number
+          semProcNaResposta: number
+          puladosUf: number
+          log: string[]
+          xMotivo?: string
+        }>
+        onBuscarProcProgress(
+          cb: (p: {
+            tipo: 'inicio' | 'chave' | 'concluido' | 'erro'
+            chave?: string
+            indice?: number
+            total?: number
+            mensagem?: string
+            salvos?: number
+            falhas?: number
+            semProc?: number
+          }) => void
+        ): () => void
         onSyncDistProgress(cb: (p: NfeDistDfeSyncProgresso) => void): () => void
       }
       cte: {

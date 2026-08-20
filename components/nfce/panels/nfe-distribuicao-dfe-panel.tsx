@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { CertificateUiState, LoadingUiState, ToastVariant } from '@/types/nfce-app'
 import { useIsElectron } from '@/hooks/useIsElectron'
-import { BUTTON_PRIMARY_CLASS, INPUT_BASE_CLASS, SURFACE_CARD_CLASS } from '@/components/nfce/ui/classes'
+import { BUTTON_PRIMARY_CLASS, BUTTON_SUBTLE_CLASS, BUTTON_TEAL_GHOST_CLASS, INPUT_BASE_CLASS, SURFACE_CARD_CLASS } from '@/components/nfce/ui/classes'
 import { Spinner } from '@/components/nfce/ui/spinner'
 import { formatarUltNsu } from '@/lib/nfe-dist-dfe-xml'
 
@@ -89,6 +89,9 @@ export function NfeDistribuicaoDfePanel({
   const [ultNsuPersistido, setUltNsuPersistido] = useState<string | null>(null)
   const [logSync, setLogSync] = useState<string[]>([])
   const [syncRodando, setSyncRodando] = useState(false)
+  const [buscarProcRodando, setBuscarProcRodando] = useState(false)
+  const [chavesSemProc, setChavesSemProc] = useState<number | null>(null)
+  const [logBuscarProc, setLogBuscarProc] = useState<string[]>([])
 
   const [filtroAno, setFiltroAno] = useState('')
   const [filtroMes, setFiltroMes] = useState('')
@@ -114,6 +117,16 @@ export function NfeDistribuicaoDfePanel({
     if (!isElectron) return
     const off = window.electron.nfe.onSyncDistProgress((p) => {
       setLogSync((prev) => [...prev.slice(-120), formatarProgressoSync(p)])
+    })
+    return off
+  }, [isElectron])
+
+  useEffect(() => {
+    if (!isElectron) return
+    const off = window.electron.nfe.onBuscarProcProgress((p) => {
+      const ts = new Date().toLocaleTimeString('pt-BR')
+      const linha = `[${ts}] ${p.mensagem ?? p.tipo}${p.chave ? ` · ${p.chave}` : ''}`
+      setLogBuscarProc((prev) => [...prev.slice(-80), linha])
     })
     return off
   }, [isElectron])
@@ -239,11 +252,67 @@ export function NfeDistribuicaoDfePanel({
     else setUltNsuPersistido(null)
   }, [isElectron, pastaRaiz, cnpj])
 
+  const atualizarChavesSemProc = useCallback(async () => {
+    if (!isElectron || !pastaRaiz.trim() || cnpj.replace(/\D/g, '').length !== 14) {
+      setChavesSemProc(null)
+      return
+    }
+    const r = await window.electron.nfe.listarChavesSemProc(pastaRaiz.trim(), cnpj)
+    if (r.ok) setChavesSemProc(r.total ?? r.chaves?.length ?? 0)
+    else setChavesSemProc(null)
+  }, [isElectron, pastaRaiz, cnpj])
+
   useEffect(() => {
     if (modo === 'sincronizacao' || modo === 'arquivos-salvos') {
       void atualizarEstadoNsu()
+      void atualizarChavesSemProc()
     }
-  }, [modo, atualizarEstadoNsu])
+  }, [modo, atualizarEstadoNsu, atualizarChavesSemProc])
+
+  async function executarBuscarProcFaltantes() {
+    if (!isElectron) return
+    if (!certOk) {
+      showToast('erro', 'Configure o certificado.')
+      return
+    }
+    if (!pastaRaiz.trim()) {
+      showToast('erro', 'Selecione a pasta raiz dos XMLs DistDFe.')
+      return
+    }
+    if (cnpj.replace(/\D/g, '').length !== 14) {
+      showToast('erro', 'Informe o CNPJ com 14 dígitos.')
+      return
+    }
+    setBuscarProcRodando(true)
+    setLogBuscarProc([])
+    onLoadingStateChange({ type: 'request', label: 'Consultando NF-e sem procNFe (SEFAZ-SP)…' })
+    if (window.electron?.app) window.electron.app.setBusy(true)
+    try {
+      const r = await window.electron.nfe.buscarProcFaltantes(certificateState as never, {
+        pastaRaiz: pastaRaiz.trim(),
+        cnpj14: cnpj.replace(/\D/g, ''),
+        tpAmb: '1',
+        ambienteEndpoint: 'producao',
+        maxConsultas: 40,
+      })
+      if (r.log?.length) setLogBuscarProc((prev) => [...prev, ...r.log])
+      if (!r.ok) {
+        showToast('erro', r.xMotivo ?? 'Falha ao buscar procNFe.')
+        return
+      }
+      showToast(
+        'ok',
+        `procNFe: ${r.salvos} salvos · ${r.semProcNaResposta} sem XML completo · ${r.falhas} falhas (${r.candidatos} candidatos, ${r.puladosUf} UF≠SP).`,
+      )
+      await atualizarChavesSemProc()
+    } catch (err) {
+      showToast('erro', err instanceof Error ? err.message : 'Erro ao buscar procNFe faltantes.')
+    } finally {
+      setBuscarProcRodando(false)
+      onLoadingStateChange({ type: null })
+      if (window.electron?.app) window.electron.app.setBusy(false)
+    }
+  }
 
   async function executarSincronizacao() {
     if (!isElectron) return
@@ -416,13 +485,21 @@ export function NfeDistribuicaoDfePanel({
 
           <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-2 text-[11px] text-[var(--text-secondary)] space-y-1.5 max-w-3xl">
             <p>
-              <strong className="text-[var(--text-primary)]">Notas de saída (você é o emitente):</strong> a DistDFe{' '}
-              <strong>não</strong> devolve o XML completo da NF-e que a própria empresa emitiu (NT 2014.002). Para o
-              emitente a fila costuma trazer <strong>eventos</strong> (manifestação, fisco, etc.). O XML autorizado
-              deve ser obtido no <strong>sistema emissor / ERP</strong> — use a aba <strong>Importar saída</strong> para
-              organizar em <code className="text-[10px]">CNPJ/ano/mês/*_procNFe.xml</code> e o módulo Relatório. A DistDFe
-              e <code className="text-[10px]">consChNFe</code> <strong>não</strong> substituem esse fluxo para notas
-              emitidas.
+              <strong className="text-[var(--text-primary)]">Notas de saída (você é o emitente):</strong> a DistDFe AN{' '}
+              <strong>não</strong> devolve o <code className="text-[10px]">procNFe</code> da própria emissão (NT 2014.002 /
+              cStat 641 em <code className="text-[10px]">consChNFe</code>). Fluxo em 2 etapas:
+            </p>
+            <ol className="list-decimal pl-4 space-y-1">
+              <li>
+                <strong>Sincronizar</strong> DistDFe — grava eventos/resumos e as <strong>chaves</strong> (etapa 1).
+              </li>
+              <li>
+                Ao terminar (ou pelo botão abaixo), consulta <strong>NFeConsultaProtocolo4</strong> na SEFAZ-SP por chave
+                (etapa 2, máx. 40/execução, intervalo ~0,6 s; só chaves UF 35).
+              </li>
+            </ol>
+            <p>
+              Se a SEFAZ-SP devolver só protocolo (sem itens), use a aba <strong>Importar saída</strong> com o XML do ERP.
             </p>
             <p>
               O filtro “papel emitente” grava documentos em que o CNPJ é emitente da chave — inclusive eventos —
@@ -519,7 +596,7 @@ export function NfeDistribuicaoDfePanel({
           <button
             type="button"
             onClick={() => void executarSincronizacao()}
-            disabled={syncRodando}
+            disabled={syncRodando || buscarProcRodando || bloqueioAtivo}
             className={`flex items-center gap-2 px-4 py-2 no-drag ${BUTTON_PRIMARY_CLASS}`}
           >
             {syncRodando ? (
@@ -530,6 +607,49 @@ export function NfeDistribuicaoDfePanel({
               'Sincronizar agora'
             )}
           </button>
+
+          <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-3 space-y-2 max-w-3xl">
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+              <strong className="text-[var(--text-primary)]">Etapa 2 — SEFAZ-SP:</strong> chaves locais com evento/resumo
+              mas sem <code className="text-[10px]">procNFe</code>
+              {chavesSemProc != null ? ` — ${chavesSemProc} encontrada(s)` : ''}. Usa{' '}
+              <code className="text-[10px]">NFeConsultaProtocolo4</code> (máx. 40, intervalo 0,6 s; só UF 35).
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void atualizarChavesSemProc()}
+                disabled={buscarProcRodando || syncRodando}
+                className={`text-xs no-drag ${BUTTON_TEAL_GHOST_CLASS}`}
+              >
+                Contar chaves sem procNFe
+              </button>
+              <button
+                type="button"
+                onClick={() => void executarBuscarProcFaltantes()}
+                disabled={buscarProcRodando || syncRodando || bloqueioAtivo}
+                className={`flex items-center gap-2 text-sm no-drag ${BUTTON_SUBTLE_CLASS}`}
+              >
+                {buscarProcRodando ? (
+                  <>
+                    <Spinner /> Consultando SP…
+                  </>
+                ) : (
+                  'Buscar XML completo (SEFAZ-SP, até 40)'
+                )}
+              </button>
+            </div>
+            {logBuscarProc.length > 0 && (
+              <details className="rounded border border-[var(--border)] bg-[var(--bg-deep)]">
+                <summary className="px-3 py-2 text-xs cursor-pointer text-[var(--text-secondary)]">
+                  Log da consulta por chave
+                </summary>
+                <pre className="px-3 pb-3 text-[11px] font-mono whitespace-pre-wrap break-all max-h-40 overflow-auto text-[var(--text-muted)]">
+                  {logBuscarProc.join('\n')}
+                </pre>
+              </details>
+            )}
+          </div>
 
           {logSync.length > 0 && (
             <div className="mt-2">
