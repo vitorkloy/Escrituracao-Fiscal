@@ -170,6 +170,24 @@ export function DownloadXmlPanel({
           Download de XML
         </h2>
 
+        <div className="mb-4 rounded border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-2 text-[11px] text-[var(--text-secondary)] space-y-1.5">
+          <p>
+            <strong className="text-[var(--text-primary)]">SAE-SP:</strong> o download grava o cupom completo (
+            <code className="text-[10px]">*_nfce.xml</code> / <code className="text-[10px]">nfeProc</code>) e, se houver,
+            eventos em <code className="text-[10px]">*_evento.xml</code> — notas de saída emitidas pelo CNPJ do
+            certificado.
+          </p>
+          <details className="text-[11px]">
+            <summary className="cursor-pointer text-[var(--text-primary)]">Diagnóstico se só aparecerem eventos</summary>
+            <ul className="mt-1.5 list-disc pl-4 space-y-1">
+              <li>Período de listagem tipicamente até ~100 dias.</li>
+              <li>cStat 656: aguarde ~1 h.</li>
+              <li>Não misture a pasta com DistDFe de NF-e (modelo 55).</li>
+              <li>Confirme que o lote incluiu as chaves de cupom (não só chaves de eventos).</li>
+            </ul>
+          </details>
+        </div>
+
         {!certificateState.origemStore && !certificateState.senha && certificateState.pfxPath && (
           <CertificatePasswordWarning context="download" />
         )}

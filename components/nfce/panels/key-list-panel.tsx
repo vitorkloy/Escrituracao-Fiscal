@@ -306,6 +306,24 @@ export function KeyListPanel({ appModule, certificateState, showToast, onLoading
           Listagem de Chaves
         </h2>
 
+        <div className="mb-4 rounded border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-2 text-[11px] text-[var(--text-secondary)] space-y-1.5">
+          <p>
+            <strong className="text-[var(--text-primary)]">Cupons emitidos (saída):</strong> este módulo usa a{' '}
+            <strong>SAE-SP</strong> e lista/baixa NFC-e do CNPJ do certificado — o XML completo do cupom (
+            <code className="text-[10px]">*_nfce.xml</code> com <code className="text-[10px]">nfeProc</code>
+            ), não só eventos. Diferente da DistDFe de NF-e/CT-e.
+          </p>
+          <details className="text-[11px]">
+            <summary className="cursor-pointer text-[var(--text-primary)]">Só vejo eventos / pasta sem cupom?</summary>
+            <ul className="mt-1.5 list-disc pl-4 space-y-1">
+              <li>Período da listagem costuma cobrir até ~100 dias na SAE-SP — datas mais antigas podem falhar ou vir vazias.</li>
+              <li>cStat <code className="text-[10px]">656</code>: aguarde ~1 h antes de nova tentativa.</li>
+              <li>Confirme que a pasta de download não é a mesma da DistDFe NF-e (só eventos de modelo 55).</li>
+              <li>No lote, selecione as chaves desejadas; o app grava cupom e eventos em arquivos separados.</li>
+            </ul>
+          </details>
+        </div>
+
         {!certificateState.origemStore && !certificateState.senha && certificateState.pfxPath && (
           <CertificatePasswordWarning context="listagem" />
         )}

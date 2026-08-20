@@ -113,6 +113,12 @@ interface NfeDistDfeSyncProgresso {
   totalSalvos?: number
   totalIgnorados?: number
   totalFiltrados?: number
+  salvosPorTipo?: {
+    procNFe: number
+    resNFe: number
+    evento: number
+    outro: number
+  }
   mensagem?: string
 }
 
@@ -121,6 +127,12 @@ interface NfeDistDfeSyncResultado {
   totalSalvos: number
   totalIgnorados: number
   totalFiltrados: number
+  salvosPorTipo: {
+    procNFe: number
+    resNFe: number
+    evento: number
+    outro: number
+  }
   ultNSU: string
   lotes: number
   xMotivo?: string
@@ -153,6 +165,12 @@ interface CteDistDfeSyncProgresso {
   totalSalvos?: number
   totalIgnorados?: number
   totalFiltrados?: number
+  salvosPorTipo?: {
+    procCTe: number
+    resCTe: number
+    evento: number
+    outro: number
+  }
   mensagem?: string
   documentosLote?: CteDistDfeDocLinhaProgresso[]
 }
@@ -162,6 +180,12 @@ interface CteDistDfeSyncResultado {
   totalSalvos: number
   totalIgnorados: number
   totalFiltrados: number
+  salvosPorTipo: {
+    procCTe: number
+    resCTe: number
+    evento: number
+    outro: number
+  }
   ultNSU: string
   lotes: number
   xMotivo?: string
@@ -306,6 +330,43 @@ declare global {
           cnpj14: string,
           filtro?: { ano?: string; mes?: string }
         ): Promise<{ ok: boolean; arquivos?: CteXmlSalvoInfo[]; total?: number; xMotivo?: string }>
+        listarChavesSemProc(
+          pastaRaiz: string,
+          cnpj14: string
+        ): Promise<{ ok: boolean; chaves?: string[]; total?: number; xMotivo?: string }>
+        buscarProcFaltantes(
+          config: SefazConfig,
+          opts: {
+            pastaRaiz: string
+            cnpj14: string
+            tpAmb?: '1' | '2'
+            ambienteEndpoint?: 'producao' | 'homologacao'
+            maxConsultas?: number
+          }
+        ): Promise<{
+          ok: boolean
+          candidatos: number
+          tentadas: number
+          salvos: number
+          ignorados: number
+          falhas: number
+          semProcNaResposta: number
+          log: string[]
+          xMotivo?: string
+        }>
+        onBuscarProcProgress(
+          cb: (p: {
+            tipo: 'inicio' | 'chave' | 'concluido' | 'erro'
+            chave?: string
+            indice?: number
+            total?: number
+            mensagem?: string
+            salvos?: number
+            falhas?: number
+            semProc?: number
+            pulados?: number
+          }) => void
+        ): () => void
         onSyncDistProgress(cb: (p: CteDistDfeSyncProgresso) => void): () => void
       }
       fs: {
@@ -313,6 +374,21 @@ declare global {
         salvarXml(conteudo: string, nomeArquivo: string): Promise<boolean>
         abrirPasta(caminho: string): Promise<void>
         lerArquivoUtf8(caminho: string): Promise<{ ok: boolean; conteudo?: string; xMotivo?: string }>
+        importarXmlsSaida(opts: {
+          pastaOrigem: string
+          pastaDestino: string
+          cnpj14: string
+          tipo: 'nfe' | 'cte'
+        }): Promise<{
+          ok: boolean
+          copiados: number
+          ignorados: number
+          pulados: number
+          falhas: number
+          pastaDestino?: string
+          amostra?: string[]
+          xMotivo?: string
+        }>
       }
       relatorio: {
         gerarComparativoXlsx(pastaSaida: string): Promise<{

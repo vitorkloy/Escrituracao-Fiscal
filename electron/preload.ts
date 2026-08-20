@@ -129,6 +129,33 @@ contextBridge.exposeInMainWorld('electron', {
       cnpj14: string,
       filtro?: { ano?: string; mes?: string }
     ) => ipcRenderer.invoke('cte:listar-xmls-salvos', pastaRaiz, cnpj14, filtro),
+    listarChavesSemProc: (pastaRaiz: string, cnpj14: string) =>
+      ipcRenderer.invoke('cte:listar-chaves-sem-proc', pastaRaiz, cnpj14),
+    buscarProcFaltantes: (
+      config: ConfigCert & { thumbprint?: string },
+      opts: {
+        pastaRaiz: string
+        cnpj14: string
+        tpAmb?: '1' | '2'
+        ambienteEndpoint?: 'producao' | 'homologacao'
+        maxConsultas?: number
+      }
+    ) => ipcRenderer.invoke('cte:buscar-proc-faltantes', config, opts),
+    onBuscarProcProgress: (cb: (p: {
+      tipo: 'inicio' | 'chave' | 'concluido' | 'erro'
+      chave?: string
+      indice?: number
+      total?: number
+      mensagem?: string
+      salvos?: number
+      falhas?: number
+      semProc?: number
+      pulados?: number
+    }) => void) => {
+      const fn = (_e: Electron.IpcRendererEvent, p: Parameters<typeof cb>[0]) => cb(p)
+      ipcRenderer.on('cte:buscar-proc-progress', fn)
+      return () => ipcRenderer.removeListener('cte:buscar-proc-progress', fn)
+    },
     onSyncDistProgress: (cb: (p: {
       tipo: 'lote' | 'concluido' | 'erro'
       numeroLote?: number
@@ -161,6 +188,12 @@ contextBridge.exposeInMainWorld('electron', {
     salvarXml:        (c: string, n: string)            => ipcRenderer.invoke('fs:salvar-xml', c, n),
     abrirPasta:       (caminho: string)                 => ipcRenderer.invoke('fs:abrir-pasta', caminho),
     lerArquivoUtf8:   (caminho: string)                 => ipcRenderer.invoke('fs:ler-arquivo-utf8', caminho),
+    importarXmlsSaida: (opts: {
+      pastaOrigem: string
+      pastaDestino: string
+      cnpj14: string
+      tipo: 'nfe' | 'cte'
+    }) => ipcRenderer.invoke('fs:importar-xmls-saida', opts),
   },
 
   relatorio: {

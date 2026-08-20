@@ -117,6 +117,9 @@ export function CteDistribuicaoDfePanel({
   const [logSync, setLogSync] = useState<string[]>([])
   const [linhasSessaoDist, setLinhasSessaoDist] = useState<LinhaTabelaDistSessao[]>([])
   const [syncRodando, setSyncRodando] = useState(false)
+  const [buscarProcRodando, setBuscarProcRodando] = useState(false)
+  const [chavesSemProc, setChavesSemProc] = useState<number | null>(null)
+  const [logBuscarProc, setLogBuscarProc] = useState<string[]>([])
 
   const [filtroAno, setFiltroAno] = useState('')
   const [filtroMes, setFiltroMes] = useState('')
@@ -151,6 +154,16 @@ export function CteDistribuicaoDfePanel({
           return merged.slice(merged.length - MAX_LINHAS_SESSAO)
         })
       }
+    })
+    return off
+  }, [isElectron])
+
+  useEffect(() => {
+    if (!isElectron) return
+    const off = window.electron.cte.onBuscarProcProgress((p) => {
+      const ts = new Date().toLocaleTimeString('pt-BR')
+      const linha = `[${ts}] ${p.mensagem ?? p.tipo}${p.chave ? ` · ${p.chave}` : ''}`
+      setLogBuscarProc((prev) => [...prev.slice(-80), linha])
     })
     return off
   }, [isElectron])
@@ -225,11 +238,67 @@ export function CteDistribuicaoDfePanel({
     else setUltNsuPersistido(null)
   }, [isElectron, pastaRaiz, cnpj])
 
+  const atualizarChavesSemProc = useCallback(async () => {
+    if (!isElectron || !pastaRaiz.trim() || cnpj.replace(/\D/g, '').length !== 14) {
+      setChavesSemProc(null)
+      return
+    }
+    const r = await window.electron.cte.listarChavesSemProc(pastaRaiz.trim(), cnpj)
+    if (r.ok) setChavesSemProc(r.total ?? r.chaves?.length ?? 0)
+    else setChavesSemProc(null)
+  }, [isElectron, pastaRaiz, cnpj])
+
   useEffect(() => {
     if (modo === 'sincronizacao' || modo === 'arquivos-salvos') {
       void atualizarEstadoNsu()
+      void atualizarChavesSemProc()
     }
-  }, [modo, atualizarEstadoNsu])
+  }, [modo, atualizarEstadoNsu, atualizarChavesSemProc])
+
+  async function executarBuscarProcFaltantes() {
+    if (!isElectron) return
+    if (!certOk) {
+      showToast('erro', 'Configure o certificado.')
+      return
+    }
+    if (!pastaRaiz.trim()) {
+      showToast('erro', 'Selecione a pasta raiz dos XMLs DistDFe.')
+      return
+    }
+    if (cnpj.replace(/\D/g, '').length !== 14) {
+      showToast('erro', 'Informe o CNPJ com 14 dígitos.')
+      return
+    }
+    setBuscarProcRodando(true)
+    setLogBuscarProc([])
+    onLoadingStateChange({ type: 'request', label: 'Consultando CT-e sem procCTe…' })
+    if (window.electron?.app) window.electron.app.setBusy(true)
+    try {
+      const r = await window.electron.cte.buscarProcFaltantes(certificateState as never, {
+        pastaRaiz: pastaRaiz.trim(),
+        cnpj14: cnpj.replace(/\D/g, ''),
+        tpAmb: '1',
+        ambienteEndpoint: 'producao',
+        maxConsultas: 10,
+      })
+      if (r.log?.length) setLogBuscarProc((prev) => [...prev, ...r.log])
+      if (!r.ok) {
+        showToast('erro', r.xMotivo ?? 'Falha ao buscar procCTe.')
+        return
+      }
+      showToast(
+        'ok',
+        `procCTe: ${r.salvos} salvos · ${r.semProcNaResposta} sem XML na resposta · ${r.falhas} falhas (${r.candidatos} candidatos).`,
+      )
+      await atualizarChavesSemProc()
+    } catch (err) {
+      showToast('erro', getErrorMessage(err, 'Erro ao buscar procCTe faltantes.'))
+    } finally {
+      setBuscarProcRodando(false)
+      onLoadingStateChange({ type: null })
+      if (window.electron?.app) window.electron.app.setBusy(false)
+    }
+  }
 
   async function executarSincronizacao() {
     if (!isElectron) return
@@ -275,9 +344,13 @@ export function CteDistribuicaoDfePanel({
       if (r.ok) {
         const partFiltrados =
           r.totalFiltrados > 0 ? `, ${r.totalFiltrados} não gravados (filtro)` : ''
+        const t = r.salvosPorTipo
+        const partTipos = t
+          ? ` [procCTe ${t.procCTe}, resCTe ${t.resCTe}, evento ${t.evento}, outro ${t.outro}]`
+          : ''
         showToast(
           'ok',
-          `Sincronização concluída: ${r.totalSalvos} XML(s) novos, ${r.totalIgnorados} já existentes${partFiltrados} (${r.lotes} lote(s)).`,
+          `Sincronização concluída: ${r.totalSalvos} XML(s) novos, ${r.totalIgnorados} já existentes${partFiltrados}${partTipos} (${r.lotes} lote(s)).`,
         )
       } else {
         const base = r.xMotivo ?? 'Falha na sincronização.'
@@ -403,6 +476,22 @@ export function CteDistribuicaoDfePanel({
               pasta, nova sincronização marca como &quot;já existente&quot; e só acrescenta eventos novos.
             </p>
 
+            <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-2 text-[11px] text-[var(--text-secondary)] space-y-1.5">
+              <p>
+                <strong className="text-[var(--text-primary)]">CT-e de saída (você é o emitente):</strong> a DistDFe AN
+                tipicamente <strong>não</strong> devolve o <code className="text-[10px]">procCTe</code> da própria emissão —
+                costuma trazer eventos ligados às suas chaves. Para o XML completo emitido, use a aba{' '}
+                <strong>Importar saída</strong> (ERP), a aba <strong>Consulta XML</strong> (SEFAZ-SP) quando tiver a
+                chave, ou o botão abaixo para tentar <code className="text-[10px]">consSitCTe</code> nas chaves locais
+                sem <code className="text-[10px]">procCTe</code> (máx. 10 por execução, intervalo 3 s; para se houver
+                cStat 656).
+              </p>
+              <p>
+                O filtro “papel emitente” não significa “baixar todos os CT-e emitidos”; apenas restringe o que é gravado
+                da fila.
+              </p>
+            </div>
+
             <div className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-[var(--text-secondary)]">
               <strong className="text-[var(--text-primary)]">Atenção:</strong> excesso de consultas pode gerar{' '}
               <strong>cStat 656</strong>. Aguarde cerca de 1 h. “Reiniciar NSU” só se for realmente necessário.
@@ -452,11 +541,12 @@ export function CteDistribuicaoDfePanel({
                 className={`${INPUT_BASE_CLASS} mt-1 w-full max-w-xl text-sm`}
               >
                 <option value="todos">Todos os documentos da fila</option>
-                <option value="emitente">Apenas saída (emitente)</option>
-                <option value="destinatario">Apenas entrada (destinatário)</option>
+                <option value="emitente">Papel emitente (eventos/docs em que o CNPJ é emitente da chave)</option>
+                <option value="destinatario">Papel destinatário / tomador (entrada)</option>
               </select>
               <p className="text-[10px] text-[var(--text-muted)] mt-1">
-                Eventos: CNPJ como autor em <code className="text-[10px]">infEvento</code>.{' '}
+                “Papel emitente” <strong>não</strong> baixa o XML dos CT-e que você emitiu. Eventos: CNPJ como autor em{' '}
+                <code className="text-[10px]">infEvento</code> (filtro destinatário) ou emitente da chave (filtro emitente).{' '}
                 <code className="text-[10px]">resCTe</code> pode não ter <code className="text-[10px]">dest</code> para o
                 filtro entrada.
               </p>
@@ -484,7 +574,7 @@ export function CteDistribuicaoDfePanel({
             <button
               type="button"
               onClick={() => void executarSincronizacao()}
-              disabled={syncRodando}
+              disabled={syncRodando || buscarProcRodando}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm no-drag ${BUTTON_PRIMARY_CLASS}`}
             >
               {syncRodando ? (
@@ -498,6 +588,50 @@ export function CteDistribuicaoDfePanel({
                 </>
               )}
             </button>
+
+            <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-3 space-y-2">
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                <strong className="text-[var(--text-primary)]">Complemento pós-DistDFe:</strong> chaves locais com
+                evento/resumo mas sem <code className="text-[10px]">procCTe</code>
+                {chavesSemProc != null ? ` — ${chavesSemProc} encontrada(s)` : ''}. Consulta SEFAZ-SP (
+                <code className="text-[10px]">consSitCTe</code>), máx. 10 por execução, intervalo 3 s; interrompe em
+                cStat 656.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void atualizarChavesSemProc()}
+                  disabled={buscarProcRodando || syncRodando}
+                  className={`text-xs no-drag ${BUTTON_TEAL_GHOST_CLASS}`}
+                >
+                  Contar chaves sem procCTe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void executarBuscarProcFaltantes()}
+                  disabled={buscarProcRodando || syncRodando}
+                  className={`flex items-center gap-2 text-sm no-drag ${BUTTON_SUBTLE_CLASS}`}
+                >
+                  {buscarProcRodando ? (
+                    <>
+                      <Spinner /> Consultando…
+                    </>
+                  ) : (
+                    'Buscar procCTe faltantes (até 10)'
+                  )}
+                </button>
+              </div>
+              {logBuscarProc.length > 0 && (
+                <details className="rounded border border-[var(--border)] bg-[var(--bg-deep)]">
+                  <summary className="px-3 py-2 text-xs cursor-pointer text-[var(--text-secondary)]">
+                    Log da busca por chave
+                  </summary>
+                  <pre className="px-3 pb-3 text-[11px] font-mono whitespace-pre-wrap break-all max-h-40 overflow-auto text-[var(--text-muted)]">
+                    {logBuscarProc.join('\n')}
+                  </pre>
+                </details>
+              )}
+            </div>
 
             {logSync.length > 0 && (
               <details className="rounded border border-[var(--border)] bg-[var(--bg-deep)]">

@@ -12,8 +12,10 @@ export type AppTab =
   | 'xml-retencao'
   | 'nfe-dist-dfe'
   | 'nfe-recepcao-evento'
+  | 'nfe-importar-saida'
   | 'cte-consulta'
   | 'cte-dist-dfe'
+  | 'cte-importar-saida'
 
 /** Item da barra lateral (ícone Ionicons como data URI / nome). */
 export interface NavTabConfig {

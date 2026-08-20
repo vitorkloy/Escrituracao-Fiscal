@@ -294,7 +294,9 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
             Estilo FSist ampliado (61 colunas): 1 linha por item, deduplicação por chave (prefere{' '}
             <span className="font-mono">procNFe</span>), PIS/COFINS/IBS/CBS quando existirem. Gera o
             XLSX e um <span className="font-mono">*-diagnostico.txt</span> listando arquivos
-            ignorados.
+            ignorados. Para <strong>notas de saída</strong> (emitidas pela empresa), copie os XML do
+            ERP/emissor para esta pasta — a DistDFe AN não entrega o <span className="font-mono">procNFe</span> da
+            própria emissão.
           </p>
 
           <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-3 mb-3">

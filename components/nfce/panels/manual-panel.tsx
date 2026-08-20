@@ -140,6 +140,11 @@ const MANUAL_SECOES_MODULOS: ManualSectionData[] = [
         <code className="text-[11px]">CONTEXTO.md</code> na raiz do projeto ou README.
       </>,
       <>
+        <strong>Notas de saída:</strong> este módulo <strong>lista e baixa os cupons emitidos</strong> pelo CNPJ do
+        certificado (SAE-SP). O download grava o XML completo do cupom (e eventos, se houver). Isso é diferente da DistDFe
+        de NF-e/CT-e, que <strong>não</strong> devolve ao emitente o XML das próprias notas modelo 55/57.
+      </>,
+      <>
         Durante a busca aparece overlay de progresso; pode <strong>Cancelar busca</strong>. Se tentar fechar o app com operação em
         curso, será pedida confirmação.
       </>,
@@ -154,14 +159,26 @@ const MANUAL_SECOES_MODULOS: ManualSectionData[] = [
         eventos) e listagem dos XMLs já gravados em disco.
       </>,
       <>
-        <strong>Abas:</strong> <strong>Certificado</strong>, <strong>Distribuição DFe</strong>, <strong>Recepção evento</strong>.
+        <strong>Abas:</strong> <strong>Certificado</strong>, <strong>Distribuição DFe</strong>, <strong>Importar saída</strong>,{' '}
+        <strong>Recepção evento</strong>.
       </>,
       <>
         <strong>Sincronização por NSU:</strong> indique pasta raiz e o <strong>CNPJ de 14 dígitos</strong> (deve ser o mesmo CNPJ do
         certificado). O app guarda estado (<code className="text-[11px]">.nfe-dist-state.json</code>), registo de diagnóstico (
         <code className="text-[11px]">sync-debug.log</code>) e XMLs em subpastas <code className="text-[11px]">{`{ano}/{mes}`}</code>{' '}
         com nomes que incluem sufixos como <code className="text-[11px]">_procNFe</code>, <code className="text-[11px]">_resNFe</code>,{' '}
-        <code className="text-[11px]">_evento</code>, para não sobrescrever nota e evento da mesma chave.
+        <code className="text-[11px]">_evento</code>, para não sobrescrever nota e evento da mesma chave. Ao concluir, o
+        resumo mostra quantos arquivos novos foram <code className="text-[11px]">procNFe</code> /{' '}
+        <code className="text-[11px]">resNFe</code> / <code className="text-[11px]">evento</code>.
+      </>,
+      <>
+        <strong>Limite importante (NT 2014.002):</strong> se a empresa é <strong>emitente</strong>, a DistDFe{' '}
+        <strong>não</strong> disponibiliza o XML completo (<code className="text-[11px]">procNFe</code>) das NF-e que ela
+        própria emitiu — a fila traz sobretudo <strong>eventos</strong> (ex.: manifestação do destinatário). O XML de
+        saída deve ser guardado no <strong>emissor/ERP</strong> na autorização e importado pela aba{' '}
+        <strong>Importar saída</strong> (organiza em <code className="text-[11px]">CNPJ/ano/mês/*_procNFe.xml</code>) para
+        relatórios. Para <strong>entrada</strong> (destinatário), use ciência da operação e a DistDFe para obter o{' '}
+        <code className="text-[11px]">procNFe</code>.
       </>,
       <>
         <strong>Códigos frequentes:</strong> <code className="text-[11px]">138</code> há documentos na resposta;{' '}
@@ -183,16 +200,25 @@ const MANUAL_SECOES_MODULOS: ManualSectionData[] = [
         <strong>chave de 44 dígitos</strong> (<code className="text-[11px]">consSitCTe</code>, <strong>CTeConsultaV4</strong>). No{' '}
         <strong>Ambiente Nacional</strong>, <strong>Distribuição DFe</strong> por NSU (<code className="text-[11px]">cteDistDFeInteresse</code>,{' '}
         <strong>CTeDistribuicaoDFe</strong>), com filtro por papel (emitente/destinatário) e tabela de documentos por lote durante a
-        sincronização.
+        sincronização. O resumo da sync inclui contagem por tipo (<code className="text-[11px]">procCTe</code> /{' '}
+        <code className="text-[11px]">resCTe</code> / evento).
       </>,
       <>
-        <strong>Abas:</strong> <strong>Certificado</strong>, <strong>Distribuição DFe</strong>, <strong>Consulta XML</strong>.
+        <strong>Abas:</strong> <strong>Certificado</strong>, <strong>Distribuição DFe</strong>, <strong>Importar saída</strong>,{' '}
+        <strong>Consulta XML</strong>.
       </>,
       <>
         Na <strong>Distribuição DFe</strong>, indique pasta raiz e CNPJ (alinhado ao certificado), <code className="text-[11px]">cUFAutor</code>, filtro e
-        inicie a sincronização; o estado fica em <code className="text-[11px]">.cte-dist-state.json</code> na pasta raiz. Na{' '}
-        <strong>Consulta XML</strong>, informe chave, <code className="text-[11px]">tpAmb</code> e endpoint SP; pode guardar{' '}
-        <code className="text-[11px]">procCTe</code>, <code className="text-[11px]">protCTe</code> ou o SOAP completo.
+        inicie a sincronização; o estado fica em <code className="text-[11px]">.cte-dist-state.json</code> na pasta raiz. Após a sync, pode
+        usar <strong>Buscar procCTe faltantes</strong> (até 10 chaves, intervalo 3 s). Na <strong>Consulta XML</strong>, informe chave,{' '}
+        <code className="text-[11px]">tpAmb</code> e endpoint SP; pode guardar <code className="text-[11px]">procCTe</code>,{' '}
+        <code className="text-[11px]">protCTe</code> ou o SOAP completo. Na <strong>Importar saída</strong>, organize XMLs do ERP em{' '}
+        <code className="text-[11px]">CNPJ/ano/mês/*_procCTe.xml</code>.
+      </>,
+      <>
+        <strong>CT-e de saída:</strong> como na NF-e, a DistDFe costuma entregar <strong>eventos</strong> ao emitente, não
+        necessariamente o <code className="text-[11px]">procCTe</code> da própria emissão. Prefira importar do emissor, consultar
+        por chave ou a busca limitada de proc faltantes.
       </>,
       <>
         O certificado utilizado deve ser adequado à operação (emitente, tomador, etc., conforme regras da SEFAZ para aquele documento).
@@ -204,11 +230,18 @@ const MANUAL_SECOES_MODULOS: ManualSectionData[] = [
     itens: [
       <>
         Disponível como módulo próprio na tela inicial. Serve para gerar ficheiros <strong>XLSX</strong> comparativos a partir de uma{' '}
-        <strong>pasta</strong> que já contenha XMLs de NFC-e baixados pelo eFis (aprovadas e canceladas).
+        <strong>pasta</strong> que já contenha XMLs de NFC-e baixados pelo eFis (aprovadas e canceladas), e o{' '}
+        <strong>Relatório Notas</strong> (itens) a partir de NF-e/NFC-e com <code className="text-[11px]">procNFe</code>.
       </>,
       <>
         Escolha a pasta, confira a pré-visualização e os totais, depois <strong>Gerar XLSX</strong>. Os nomes dos ficheiros gerados
         costumam incluir <strong>razão social</strong> e <strong>CNPJ</strong> quando esses dados são obtidos dos XMLs.
+      </>,
+      <>
+        <strong>Importar XMLs de saída:</strong> nos módulos NF-e e CT-e use a aba <strong>Importar saída</strong> (pasta do
+        ERP → pasta eFis) ou copie manualmente para <code className="text-[11px]">CNPJ/ano/mês</code>; depois{' '}
+        <strong>Relatório Notas</strong> — varredura recursiva de <code className="text-[11px]">nfeProc</code> /{' '}
+        <code className="text-[11px]">*_procNFe.xml</code>.
       </>,
     ],
   },

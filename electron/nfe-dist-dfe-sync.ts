@@ -41,7 +41,16 @@ export interface NfeDistDfeSyncProgresso {
   totalSalvos?: number
   totalIgnorados?: number
   totalFiltrados?: number
+  /** Contagem de arquivos novos gravados nesta sync, por tipo. */
+  salvosPorTipo?: DistDfeSalvosPorTipoNfe
   mensagem?: string
+}
+
+export interface DistDfeSalvosPorTipoNfe {
+  procNFe: number
+  resNFe: number
+  evento: number
+  outro: number
 }
 
 export interface NfeDistDfeSyncResultado {
@@ -49,6 +58,7 @@ export interface NfeDistDfeSyncResultado {
   totalSalvos: number
   totalIgnorados: number
   totalFiltrados: number
+  salvosPorTipo: DistDfeSalvosPorTipoNfe
   ultNSU: string
   lotes: number
   xMotivo?: string
@@ -212,6 +222,7 @@ async function buscarProcNFePorChaves(params: {
   chavesComProcNFe: Set<string>
   /** Atualizado ao concluir ou abandonar chaves (656, falhas definitivas da SEFAZ). */
   chavesPendentesProcNFe: Set<string>
+  salvosPorTipo: DistDfeSalvosPorTipoNfe
   onProgress?: ProgressCallback
 }): Promise<{ salvos: number; ignorados: number; falhas: number }> {
   const {
@@ -223,6 +234,7 @@ async function buscarProcNFePorChaves(params: {
     chaves,
     chavesComProcNFe,
     chavesPendentesProcNFe,
+    salvosPorTipo,
     onProgress,
   } = params
   const cnpj = cnpj14.replace(/\D/g, '')
@@ -281,8 +293,10 @@ async function buscarProcNFePorChaves(params: {
         const tipo = inferirTipoArquivoDistDfe(doc.schema, doc.xmlUtf8)
         if (tipo === 'procNFe') {
           const r = salvarDocumento(pastaRaiz, cnpj14, doc.xmlUtf8, doc.nsu, doc.schema)
-          if (r === 'salvo') salvos++
-          else ignorados++
+          if (r === 'salvo') {
+            salvos++
+            salvosPorTipo.procNFe++
+          } else ignorados++
           salvouProcNFe = true
           break
         }
@@ -294,8 +308,10 @@ async function buscarProcNFePorChaves(params: {
           const tipo = inferirTipoArquivoDistDfe(doc.schema, doc.xmlUtf8)
           if (tipo === 'resNFe') {
             const r = salvarDocumento(pastaRaiz, cnpj14, doc.xmlUtf8, doc.nsu, doc.schema)
-            if (r === 'salvo') salvos++
-            else ignorados++
+            if (r === 'salvo') {
+              salvos++
+              salvosPorTipo.resNFe++
+            } else ignorados++
             break
           }
         }
@@ -352,6 +368,7 @@ export async function sincronizarDistDfeNfe(params: {
   let totalIgnorados = 0
   let totalFiltrados = 0
   let lotes = 0
+  const salvosPorTipo: DistDfeSalvosPorTipoNfe = { procNFe: 0, resNFe: 0, evento: 0, outro: 0 }
   const cnpjDir = cnpj14.replace(/\D/g, '')
   const chavesPendentes = carregarChavesPendentesProcNFe(pastaRaiz, cnpj14)
   for (const ch of [...chavesPendentes]) {
@@ -397,6 +414,7 @@ export async function sincronizarDistDfeNfe(params: {
           totalSalvos,
           totalIgnorados,
           totalFiltrados,
+          salvosPorTipo: { ...salvosPorTipo },
           ultNSU,
           lotes,
           xMotivo: `${e instanceof Error ? e.message : 'Parse SOAP'} — trecho: ${snippet}`,
@@ -443,6 +461,7 @@ export async function sincronizarDistDfeNfe(params: {
           totalSalvos,
           totalIgnorados,
           totalFiltrados,
+          salvosPorTipo: { ...salvosPorTipo },
           ultNSU: ultApos656,
           lotes,
           xMotivo: `[656] ${detalhe}`,
@@ -480,6 +499,7 @@ export async function sincronizarDistDfeNfe(params: {
           totalSalvos,
           totalIgnorados,
           totalFiltrados,
+          salvosPorTipo: { ...salvosPorTipo },
           ultNSU,
           lotes,
           xMotivo: `[${ret.cStat}] ${ret.xMotivo || 'Resposta não sucedida.'}`,
@@ -524,15 +544,19 @@ export async function sincronizarDistDfeNfe(params: {
           }
           continue
         }
+        const tipoSalvo = inferirTipoArquivoDistDfe(doc.schema, doc.xmlUtf8)
         const r = salvarDocumento(pastaRaiz, cnpj14, doc.xmlUtf8, doc.nsu, doc.schema)
         if (r === 'salvo') {
           loteSalvos++
           totalSalvos++
+          if (tipoSalvo === 'procNFe') salvosPorTipo.procNFe++
+          else if (tipoSalvo === 'resNFe') salvosPorTipo.resNFe++
+          else if (tipoSalvo === 'evento') salvosPorTipo.evento++
+          else salvosPorTipo.outro++
         } else {
           loteIgnorados++
           totalIgnorados++
         }
-        const tipoSalvo = inferirTipoArquivoDistDfe(doc.schema, doc.xmlUtf8)
         const chaveSalva = extrairChaveAcesso44(doc.xmlUtf8)
         if (chaveSalva?.length === 44) {
           if (tipoSalvo === 'procNFe') {
@@ -587,6 +611,7 @@ export async function sincronizarDistDfeNfe(params: {
           totalSalvos,
           totalIgnorados,
           totalFiltrados,
+          salvosPorTipo: { ...salvosPorTipo },
           ultNSU: nsuSolicitadoNesteLote,
           lotes,
           xMotivo:
@@ -654,6 +679,7 @@ export async function sincronizarDistDfeNfe(params: {
         chaves: chavesPendentes,
         chavesComProcNFe,
         chavesPendentesProcNFe: chavesPendentes,
+        salvosPorTipo,
         onProgress,
       })
       totalSalvos += f2.salvos
@@ -669,9 +695,18 @@ export async function sincronizarDistDfeNfe(params: {
         totalSalvos,
         totalIgnorados,
         totalFiltrados,
+        salvosPorTipo: { ...salvosPorTipo },
         mensagem: 'Sincronização concluída.',
       })
-      return { ok: true, totalSalvos, totalIgnorados, totalFiltrados, ultNSU, lotes }
+      return {
+        ok: true,
+        totalSalvos,
+        totalIgnorados,
+        totalFiltrados,
+        salvosPorTipo: { ...salvosPorTipo },
+        ultNSU,
+        lotes,
+      }
     }
 
     persistirEstadoDistDfe(pastaRaiz, cnpj14, ultNSU, chavesPendentes)
@@ -680,6 +715,7 @@ export async function sincronizarDistDfeNfe(params: {
       totalSalvos,
       totalIgnorados,
       totalFiltrados,
+      salvosPorTipo: { ...salvosPorTipo },
       ultNSU,
       lotes,
       xMotivo: `Limite de ${MAX_LOTES_SEGURANCA} lotes atingido (proteção).`,
@@ -706,6 +742,7 @@ export async function sincronizarDistDfeNfe(params: {
       totalSalvos,
       totalIgnorados,
       totalFiltrados,
+      salvosPorTipo: { ...salvosPorTipo },
       ultNSU,
       lotes,
       xMotivo: msg,

@@ -3,6 +3,7 @@ import {
   cloudDownloadOutline,
   documentTextOutline,
   downloadOutline,
+  folderOpenOutline,
   funnelOutline,
   listOutline,
   sendOutline,
@@ -20,12 +21,14 @@ export const NFCE_NAV_TABS: NavTabConfig[] = [
 export const NFE_NAV_TABS: NavTabConfig[] = [
   { id: 'config', label: 'Certificado', icon: settingsOutline },
   { id: 'nfe-dist-dfe', label: 'Distribuição DFe', icon: cloudDownloadOutline },
+  { id: 'nfe-importar-saida', label: 'Importar saída', icon: folderOpenOutline },
   { id: 'nfe-recepcao-evento', label: 'Recepção evento', icon: sendOutline },
 ]
 
 export const CTE_NAV_TABS: NavTabConfig[] = [
   { id: 'config', label: 'Certificado', icon: settingsOutline },
   { id: 'cte-dist-dfe', label: 'Distribuição DFe', icon: cloudDownloadOutline },
+  { id: 'cte-importar-saida', label: 'Importar saída', icon: folderOpenOutline },
   { id: 'cte-consulta', label: 'Consulta XML', icon: busOutline },
 ]
 

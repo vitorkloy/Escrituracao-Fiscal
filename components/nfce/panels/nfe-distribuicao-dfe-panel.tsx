@@ -289,9 +289,13 @@ export function NfeDistribuicaoDfePanel({
         await limparBloqueioSeHouver()
         const partFiltrados =
           r.totalFiltrados > 0 ? `, ${r.totalFiltrados} não gravados (filtro)` : ''
+        const t = r.salvosPorTipo
+        const partTipos = t
+          ? ` [procNFe ${t.procNFe}, resNFe ${t.resNFe}, evento ${t.evento}, outro ${t.outro}]`
+          : ''
         showToast(
           'ok',
-          `Sincronização concluída: ${r.totalSalvos} XML(s) novos, ${r.totalIgnorados} já existentes${partFiltrados} (${r.lotes} lote(s)).`,
+          `Sincronização concluída: ${r.totalSalvos} XML(s) novos, ${r.totalIgnorados} já existentes${partFiltrados}${partTipos} (${r.lotes} lote(s)).`,
         )
       } else {
         const base = r.xMotivo ?? 'Falha na sincronização.'
@@ -404,9 +408,27 @@ export function NfeDistribuicaoDfePanel({
       {modo === 'sincronizacao' && (
         <div className={`p-4 ${SURFACE_CARD_CLASS} space-y-3`}>
           <p className="text-xs text-[var(--text-secondary)]">
-            Esta opção busca automaticamente novas notas e eventos e salva os arquivos na pasta escolhida, organizados por
-            CNPJ, ano e mês. O sistema continua de onde parou na última sincronização e não sobrescreve arquivos já salvos.
+            Esta opção consome a fila DistDFe do Ambiente Nacional (NSU) e grava o que a AN disponibilizar
+            para o CNPJ do certificado — tipicamente <strong>resumos</strong>, <strong>eventos</strong> e, para
+            o papel de <strong>destinatário</strong> (após ciência), o XML completo (<code className="text-[10px]">procNFe</code>).
+            O sistema continua de onde parou e não sobrescreve arquivos já salvos.
           </p>
+
+          <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-2 text-[11px] text-[var(--text-secondary)] space-y-1.5 max-w-3xl">
+            <p>
+              <strong className="text-[var(--text-primary)]">Notas de saída (você é o emitente):</strong> a DistDFe{' '}
+              <strong>não</strong> devolve o XML completo da NF-e que a própria empresa emitiu (NT 2014.002). Para o
+              emitente a fila costuma trazer <strong>eventos</strong> (manifestação, fisco, etc.). O XML autorizado
+              deve ser obtido no <strong>sistema emissor / ERP</strong> — use a aba <strong>Importar saída</strong> para
+              organizar em <code className="text-[10px]">CNPJ/ano/mês/*_procNFe.xml</code> e o módulo Relatório. A DistDFe
+              e <code className="text-[10px]">consChNFe</code> <strong>não</strong> substituem esse fluxo para notas
+              emitidas.
+            </p>
+            <p>
+              O filtro “papel emitente” grava documentos em que o CNPJ é emitente da chave — inclusive eventos —
+              e <strong>não</strong> significa “baixar todas as notas emitidas”.
+            </p>
+          </div>
 
           <div className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-[var(--text-secondary)] space-y-1.5 max-w-3xl">
             <p>
@@ -464,13 +486,13 @@ export function NfeDistribuicaoDfePanel({
               className={`${INPUT_BASE_CLASS} max-w-xl`}
             >
               <option value="todos">Todos os documentos retornados na fila</option>
-              <option value="emitente">Apenas saída (CNPJ consultado como emitente da NF-e)</option>
-              <option value="destinatario">Apenas entrada (CNPJ consultado como destinatário)</option>
+              <option value="emitente">Papel emitente (eventos/docs em que o CNPJ é emitente da chave)</option>
+              <option value="destinatario">Papel destinatário (entrada — preferível para procNFe completo)</option>
             </select>
             <p className="text-[10px] text-[var(--text-muted)] mt-1 max-w-2xl">
-              Eventos (ex.: manifestação) só entram se o CNPJ consultado for o autor do evento no XML. Resumos{' '}
-              <code className="text-[10px]">resNFe</code> sem tag <code className="text-[10px]">dest</code> não servem
-              para o filtro “entrada”.
+              “Papel emitente” <strong>não</strong> baixa o XML das notas que você emitiu. Eventos entram se a chave for
+              de nota emitida pelo CNPJ. Resumos <code className="text-[10px]">resNFe</code> sem tag{' '}
+              <code className="text-[10px]">dest</code> não servem para o filtro “destinatário”.
             </p>
           </div>
 

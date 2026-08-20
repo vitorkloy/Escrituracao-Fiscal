@@ -34,6 +34,12 @@ import { sincronizarDistDfeCte, carregarUltNsuCte } from './cte-dist-dfe-sync'
 import type { CteDistDfeSyncProgresso } from './cte-dist-dfe-sync'
 import { listarXmlsCteSalvos, type CteXmlSalvoInfo } from './cte-list-xmls-local'
 import { listarXmlsNfeSalvos, type NfeXmlSalvoInfo } from './nfe-list-xmls-local'
+import { importarXmlsSaida } from './importar-xmls-saida'
+import {
+  buscarProcCteFaltantes,
+  listarChavesCteSemProc,
+  type CteBuscarProcProgresso,
+} from './cte-buscar-proc-faltantes'
 import {
   DIR_COM_RETENCAO,
   DIR_SEM_RETENCAO,
@@ -1464,6 +1470,88 @@ ipcMain.handle(
   }
 )
 
+ipcMain.handle('cte:listar-chaves-sem-proc', (_e, pastaRaiz: string, cnpj14: string) => {
+  try {
+    const pr = String(pastaRaiz ?? '').trim()
+    const cj = String(cnpj14 ?? '').replace(/\D/g, '')
+    if (!pr || cj.length !== 14) return { ok: false, chaves: [] as string[], xMotivo: 'Pasta ou CNPJ inválido.' }
+    const chaves = listarChavesCteSemProc(pr, cj)
+    return { ok: true, chaves, total: chaves.length }
+  } catch (err: unknown) {
+    return { ok: false, chaves: [] as string[], xMotivo: mensagemErro(err) }
+  }
+})
+
+function enviarProgressoBuscarProcCte(p: CteBuscarProcProgresso) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('cte:buscar-proc-progress', p)
+  }
+}
+
+ipcMain.handle(
+  'cte:buscar-proc-faltantes',
+  async (
+    _e,
+    config: ConfigCert & { thumbprint?: string },
+    opts: {
+      pastaRaiz: string
+      cnpj14: string
+      tpAmb?: '1' | '2'
+      ambienteEndpoint?: 'producao' | 'homologacao'
+      maxConsultas?: number
+    }
+  ) => {
+    let pfxPath = ''
+    let tmpCriado = false
+    try {
+      const pastaRaiz = String(opts?.pastaRaiz ?? '').trim()
+      const cnpj14 = String(opts?.cnpj14 ?? '').replace(/\D/g, '')
+      if (!pastaRaiz || cnpj14.length !== 14) {
+        return {
+          ok: false,
+          candidatos: 0,
+          tentadas: 0,
+          salvos: 0,
+          ignorados: 0,
+          falhas: 0,
+          semProcNaResposta: 0,
+          log: [] as string[],
+          xMotivo: 'Pasta ou CNPJ inválido.',
+        }
+      }
+      const resolved = await resolverPfx(config)
+      pfxPath = resolved.pfxPath
+      tmpCriado = resolved.tmpCriado
+      const cfg = { ...config, pfxPath, senha: resolved.senha }
+      const agente = criarAgente(cfg.pfxPath, cfg.senha)
+      return await buscarProcCteFaltantes({
+        config: cfg,
+        agente,
+        pastaRaiz,
+        cnpj14,
+        tpAmb: opts?.tpAmb === '2' ? '2' : '1',
+        ambienteEndpoint: opts?.ambienteEndpoint === 'homologacao' ? 'homologacao' : 'producao',
+        maxConsultas: opts?.maxConsultas,
+        onProgress: enviarProgressoBuscarProcCte,
+      })
+    } catch (err: unknown) {
+      return {
+        ok: false,
+        candidatos: 0,
+        tentadas: 0,
+        salvos: 0,
+        ignorados: 0,
+        falhas: 0,
+        semProcNaResposta: 0,
+        log: [] as string[],
+        xMotivo: mensagemErro(err),
+      }
+    } finally {
+      if (tmpCriado && pfxPath) limparPfxTemp(pfxPath)
+    }
+  }
+)
+
 ipcMain.handle(
   'cte:sync-dist-dfe',
   async (
@@ -1495,6 +1583,7 @@ ipcMain.handle(
           totalSalvos: 0,
           totalIgnorados: 0,
           totalFiltrados: 0,
+          salvosPorTipo: { procCTe: 0, resCTe: 0, evento: 0, outro: 0 },
           ultNSU: '',
           lotes: 0,
           xMotivo: 'Selecione a pasta raiz de armazenamento.',
@@ -1506,6 +1595,7 @@ ipcMain.handle(
           totalSalvos: 0,
           totalIgnorados: 0,
           totalFiltrados: 0,
+          salvosPorTipo: { procCTe: 0, resCTe: 0, evento: 0, outro: 0 },
           ultNSU: '',
           lotes: 0,
           xMotivo: 'CNPJ com 14 dígitos é obrigatório.',
@@ -1517,6 +1607,7 @@ ipcMain.handle(
           totalSalvos: 0,
           totalIgnorados: 0,
           totalFiltrados: 0,
+          salvosPorTipo: { procCTe: 0, resCTe: 0, evento: 0, outro: 0 },
           ultNSU: '',
           lotes: 0,
           xMotivo: 'cUFAutor inválido.',
@@ -1545,6 +1636,7 @@ ipcMain.handle(
         totalSalvos: 0,
         totalIgnorados: 0,
         totalFiltrados: 0,
+        salvosPorTipo: { procCTe: 0, resCTe: 0, evento: 0, outro: 0 },
         ultNSU: '',
         lotes: 0,
         xMotivo: mensagemErro(err),
@@ -1620,6 +1712,7 @@ ipcMain.handle(
           totalSalvos: 0,
           totalIgnorados: 0,
           totalFiltrados: 0,
+          salvosPorTipo: { procNFe: 0, resNFe: 0, evento: 0, outro: 0 },
           ultNSU: '',
           lotes: 0,
           xMotivo: 'Selecione a pasta raiz de armazenamento.',
@@ -1631,6 +1724,7 @@ ipcMain.handle(
           totalSalvos: 0,
           totalIgnorados: 0,
           totalFiltrados: 0,
+          salvosPorTipo: { procNFe: 0, resNFe: 0, evento: 0, outro: 0 },
           ultNSU: '',
           lotes: 0,
           xMotivo: 'CNPJ com 14 dígitos é obrigatório.',
@@ -1642,6 +1736,7 @@ ipcMain.handle(
           totalSalvos: 0,
           totalIgnorados: 0,
           totalFiltrados: 0,
+          salvosPorTipo: { procNFe: 0, resNFe: 0, evento: 0, outro: 0 },
           ultNSU: '',
           lotes: 0,
           xMotivo: 'cUFAutor inválido.',
@@ -1670,6 +1765,7 @@ ipcMain.handle(
         totalSalvos: 0,
         totalIgnorados: 0,
         totalFiltrados: 0,
+        salvosPorTipo: { procNFe: 0, resNFe: 0, evento: 0, outro: 0 },
         ultNSU: '',
         lotes: 0,
         xMotivo: mensagemErro(err),
@@ -1697,6 +1793,37 @@ ipcMain.handle('fs:selecionar-pasta', async () => {
     return null
   }
 })
+
+ipcMain.handle(
+  'fs:importar-xmls-saida',
+  (
+    _e,
+    opts: {
+      pastaOrigem: string
+      pastaDestino: string
+      cnpj14: string
+      tipo: 'nfe' | 'cte'
+    }
+  ) => {
+    try {
+      return importarXmlsSaida({
+        pastaOrigem: String(opts?.pastaOrigem ?? ''),
+        pastaDestino: String(opts?.pastaDestino ?? ''),
+        cnpj14: String(opts?.cnpj14 ?? ''),
+        tipo: opts?.tipo === 'cte' ? 'cte' : 'nfe',
+      })
+    } catch (err: unknown) {
+      return {
+        ok: false,
+        copiados: 0,
+        ignorados: 0,
+        pulados: 0,
+        falhas: 0,
+        xMotivo: mensagemErro(err),
+      }
+    }
+  }
+)
 
 ipcMain.handle('fs:salvar-xml', async (_e, conteudo: string, nomeArquivo: string) => {
   try {

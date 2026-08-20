@@ -45,9 +45,17 @@ export interface CteDistDfeSyncProgresso {
   totalSalvos?: number
   totalIgnorados?: number
   totalFiltrados?: number
+  salvosPorTipo?: DistDfeSalvosPorTipoCte
   mensagem?: string
   /** Documentos deste lote (chaves extraídos dos docZip). */
   documentosLote?: CteDistDfeDocLinhaProgresso[]
+}
+
+export interface DistDfeSalvosPorTipoCte {
+  procCTe: number
+  resCTe: number
+  evento: number
+  outro: number
 }
 
 export interface CteDistDfeSyncResultado {
@@ -55,6 +63,7 @@ export interface CteDistDfeSyncResultado {
   totalSalvos: number
   totalIgnorados: number
   totalFiltrados: number
+  salvosPorTipo: DistDfeSalvosPorTipoCte
   ultNSU: string
   lotes: number
   xMotivo?: string
@@ -191,6 +200,7 @@ export async function sincronizarDistDfeCte(params: {
   let totalIgnorados = 0
   let totalFiltrados = 0
   let lotes = 0
+  const salvosPorTipo: DistDfeSalvosPorTipoCte = { procCTe: 0, resCTe: 0, evento: 0, outro: 0 }
   let fase1Ok = false
 
   escreverDebugSync(pastaRaiz, cnpj14, {
@@ -229,6 +239,7 @@ export async function sincronizarDistDfeCte(params: {
           totalSalvos,
           totalIgnorados,
           totalFiltrados,
+          salvosPorTipo: { ...salvosPorTipo },
           ultNSU,
           lotes,
           xMotivo: `${e instanceof Error ? e.message : 'Parse SOAP'} — trecho: ${snippet}`,
@@ -275,6 +286,7 @@ export async function sincronizarDistDfeCte(params: {
           totalSalvos,
           totalIgnorados,
           totalFiltrados,
+          salvosPorTipo: { ...salvosPorTipo },
           ultNSU: ultApos656,
           lotes,
           xMotivo: `[656] ${detalhe}`,
@@ -311,6 +323,7 @@ export async function sincronizarDistDfeCte(params: {
           totalSalvos,
           totalIgnorados,
           totalFiltrados,
+          salvosPorTipo: { ...salvosPorTipo },
           ultNSU,
           lotes,
           xMotivo: `[${ret.cStat}] ${ret.xMotivo || 'Resposta não sucedida.'}`,
@@ -368,6 +381,10 @@ export async function sincronizarDistDfeCte(params: {
         if (r === 'salvo') {
           loteSalvos++
           totalSalvos++
+          if (tipoDoc === 'procCTe') salvosPorTipo.procCTe++
+          else if (tipoDoc === 'resCTe') salvosPorTipo.resCTe++
+          else if (tipoDoc === 'evento') salvosPorTipo.evento++
+          else salvosPorTipo.outro++
         } else {
           loteIgnorados++
           totalIgnorados++
@@ -425,6 +442,7 @@ export async function sincronizarDistDfeCte(params: {
           totalSalvos,
           totalIgnorados,
           totalFiltrados,
+          salvosPorTipo: { ...salvosPorTipo },
           ultNSU: nsuSolicitadoNesteLote,
           lotes,
           xMotivo:
@@ -489,9 +507,18 @@ export async function sincronizarDistDfeCte(params: {
         totalSalvos,
         totalIgnorados,
         totalFiltrados,
+        salvosPorTipo: { ...salvosPorTipo },
         mensagem: 'Sincronização concluída.',
       })
-      return { ok: true, totalSalvos, totalIgnorados, totalFiltrados, ultNSU, lotes }
+      return {
+        ok: true,
+        totalSalvos,
+        totalIgnorados,
+        totalFiltrados,
+        salvosPorTipo: { ...salvosPorTipo },
+        ultNSU,
+        lotes,
+      }
     }
 
     persistirEstadoDistDfeCte(pastaRaiz, cnpj14, ultNSU)
@@ -500,6 +527,7 @@ export async function sincronizarDistDfeCte(params: {
       totalSalvos,
       totalIgnorados,
       totalFiltrados,
+      salvosPorTipo: { ...salvosPorTipo },
       ultNSU,
       lotes,
       xMotivo: `Limite de ${MAX_LOTES_SEGURANCA} lotes atingido (proteção).`,
@@ -526,6 +554,7 @@ export async function sincronizarDistDfeCte(params: {
       totalSalvos,
       totalIgnorados,
       totalFiltrados,
+      salvosPorTipo: { ...salvosPorTipo },
       ultNSU,
       lotes,
       xMotivo: msg,
