@@ -2,15 +2,15 @@
  * Download assistido de NF-e completas pelo Portal Nacional (nfe.fazenda.gov.br),
  * a mesma técnica de ferramentas como o FSist:
  *
- * 1. Abre uma janela com a "Consulta completa" do portal e preenche a chave.
+ * 1. Abre a "Consultar NF-e" do portal e preenche a chave.
  * 2. O usuário resolve o hCaptcha ("não sou um robô") — único passo manual;
  *    o portal exige o desafio a cada consulta e não há como automatizá-lo.
  * 3. O eFis clica em Continuar, localiza "Download do documento", apresenta o
  *    certificado do repositório do Windows (mTLS) e salva o XML na estrutura
  *    CNPJ/ano/mês com o nome `{chave}_procNFe.xml`.
  *
- * Requisito: certificado A1 do participante instalado no Windows (repositório
- * pessoal do usuário), como o FSist também exige. Funciona para qualquer UF.
+ * Nota: a URL antiga `tipoConsulta=completa` hoje redireciona para a home do
+ * portal; usamos `tipoConsulta=resumo` (link oficial "Consultar NF-e").
  */
 import { app, BrowserWindow, session } from 'electron'
 import fs from 'fs'
@@ -21,10 +21,15 @@ import { extrairAnoMesEmissao } from './nfe-dist-dfe-parser'
 
 export const PORTAL_NACIONAL_MAX_POR_EXEC = 20
 
-const URL_CONSULTA_COMPLETA =
-  'https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=completa&tipoConteudo=XbSeqxE8pl8='
+/**
+ * URL atual do portal (menu "Consultar NF-e").
+ * A antiga `tipoConsulta=completa` redireciona para `principal.aspx` (home) e não tem o formulário.
+ */
+const URL_CONSULTA_NFE =
+  'https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ+gAVw2g='
 const PARTITION = 'persist:portal-nacional-nfe'
 const TIMEOUT_CAPTCHA_MS = 5 * 60_000
+const TIMEOUT_FORM_MS = 45_000
 const TIMEOUT_RESULTADO_MS = 60_000
 const TIMEOUT_DOWNLOAD_MS = 90_000
 const POLL_MS = 700
@@ -75,16 +80,28 @@ function registrarCertHandler(): void {
 /** Sonda o estado da página atual (formulário, captcha resolvido, resultado, erro). */
 const SCRIPT_SONDA = `(() => {
   const texto = (el) => ((el && (el.value || el.textContent)) || '').trim()
-  const inputChave = document.querySelector('input[id*="ChaveAcesso" i], input[name*="ChaveAcesso" i]')
-  const captchaEl = document.querySelector('[name="h-captcha-response"], [name="g-recaptcha-response"]')
+  const inputChave =
+    document.querySelector('#ctl00_ContentPlaceHolder1_txtChaveAcessoResumo, #ctl00_ContentPlaceHolder1_txtChaveAcesso, input[id*="txtChaveAcesso"], input[id*="ChaveAcesso"], input[name*="txtChaveAcesso"], input[name*="ChaveAcesso"]') ||
+    Array.from(document.querySelectorAll('input[type="text"]')).find((el) => {
+      const id = ((el.id || '') + ' ' + (el.name || '')).toLowerCase()
+      return id.includes('chave')
+    })
+  const captchaEl = document.querySelector('[name="h-captcha-response"], [name="g-recaptcha-response"], textarea[name="h-captcha-response"]')
   const clicaveis = Array.from(document.querySelectorAll('input[type="submit"], input[type="button"], button, a'))
-  const btnDownload = clicaveis.find((b) => /download\\s+d[oa]\\s+documento/i.test(texto(b)) || /btnDownload/i.test(b.id || ''))
-  const erroEl = document.querySelector('[id*="MsgErro" i], [id*="lblMsg" i], .validation-summary-errors, #ctl00_ContentPlaceHolder1_lblStatus')
+  const btnDownload = clicaveis.find((b) =>
+    /download\\s+d[oa]\\s+documento/i.test(texto(b)) ||
+    /baixar\\s+xml/i.test(texto(b)) ||
+    /btnDownload/i.test(b.id || '')
+  )
+  const erroEl = document.querySelector('[id*="MsgErro" i], [id*="lblMsg" i], [id*="vdsErros"], .validation-summary-errors, .listaErro, #ctl00_ContentPlaceHolder1_lblStatus')
+  const naHome = /principal\\.aspx/i.test(location.href) || !!document.querySelector('a[href*="consultaRecaptcha"]')
   return {
     temForm: !!inputChave,
     captchaOk: !!(captchaEl && captchaEl.value && captchaEl.value.length > 10),
     temDownload: !!btnDownload,
     erro: texto(erroEl),
+    url: location.href,
+    naHome: naHome && !inputChave,
   }
 })()`
 
@@ -93,16 +110,24 @@ interface SondaPagina {
   captchaOk: boolean
   temDownload: boolean
   erro: string
+  url?: string
+  naHome?: boolean
 }
 
 function scriptPreencherChave(chave: string, indice: number, total: number): string {
   return `(() => {
-    const input = document.querySelector('input[id*="ChaveAcesso" i], input[name*="ChaveAcesso" i]')
-    if (input) {
-      input.value = ${JSON.stringify(chave)}
-      input.dispatchEvent(new Event('input', { bubbles: true }))
-      input.dispatchEvent(new Event('change', { bubbles: true }))
-    }
+    const input =
+      document.querySelector('#ctl00_ContentPlaceHolder1_txtChaveAcessoResumo, #ctl00_ContentPlaceHolder1_txtChaveAcesso, input[id*="txtChaveAcesso"], input[id*="ChaveAcesso"], input[name*="txtChaveAcesso"], input[name*="ChaveAcesso"]') ||
+      Array.from(document.querySelectorAll('input[type="text"]')).find((el) => {
+        const id = ((el.id || '') + ' ' + (el.name || '')).toLowerCase()
+        return id.includes('chave')
+      })
+    if (!input) return false
+    input.focus()
+    input.value = ${JSON.stringify(chave)}
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+    input.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }))
     let faixa = document.getElementById('efis-banner')
     if (!faixa) {
       faixa = document.createElement('div')
@@ -111,14 +136,24 @@ function scriptPreencherChave(chave: string, indice: number, total: number): str
       document.body.appendChild(faixa)
     }
     faixa.textContent = 'eFis — Nota ${indice} de ${total}: marque "Sou humano" (captcha). O restante é automático.'
-    return !!input
+    return true
   })()`
 }
+
+const SCRIPT_IR_PARA_CONSULTA = `(() => {
+  const links = Array.from(document.querySelectorAll('a[href*="consultaRecaptcha"]'))
+  const preferido = links.find((a) => /tipoConsulta=resumo/i.test(a.getAttribute('href') || '')) || links[0]
+  if (preferido) { preferido.click(); return true }
+  return false
+})()`
 
 const SCRIPT_CLICAR_CONSULTAR = `(() => {
   const texto = (el) => ((el && (el.value || el.textContent)) || '').trim()
   const clicaveis = Array.from(document.querySelectorAll('input[type="submit"], input[type="button"], button'))
-  const btn = clicaveis.find((b) => /continuar|consultar/i.test(texto(b)) || /btnConsultar/i.test(b.id || ''))
+  const btn = clicaveis.find((b) =>
+    /continuar|consultar/i.test(texto(b)) ||
+    /btnConsultar/i.test(b.id || '')
+  )
   if (btn) { btn.click(); return true }
   return false
 })()`
@@ -126,7 +161,11 @@ const SCRIPT_CLICAR_CONSULTAR = `(() => {
 const SCRIPT_CLICAR_DOWNLOAD = `(() => {
   const texto = (el) => ((el && (el.value || el.textContent)) || '').trim()
   const clicaveis = Array.from(document.querySelectorAll('input[type="submit"], input[type="button"], button, a'))
-  const btn = clicaveis.find((b) => /download\\s+d[oa]\\s+documento/i.test(texto(b)) || /btnDownload/i.test(b.id || ''))
+  const btn = clicaveis.find((b) =>
+    /download\\s+d[oa]\\s+documento/i.test(texto(b)) ||
+    /baixar\\s+xml/i.test(texto(b)) ||
+    /btnDownload/i.test(b.id || '')
+  )
   if (btn) { btn.click(); return true }
   return false
 })()`
@@ -137,6 +176,32 @@ async function sondar(win: BrowserWindow): Promise<SondaPagina | null> {
   } catch {
     return null // página em transição/navegando
   }
+}
+
+/** Garante que a página de consulta com o campo da chave está aberta. */
+async function abrirFormularioConsulta(win: BrowserWindow, job: JobPortal): Promise<void> {
+  await win.loadURL(URL_CONSULTA_NFE)
+  const inicio = Date.now()
+  let clicouMenu = false
+  while (!job.cancelado) {
+    if (Date.now() - inicio > TIMEOUT_FORM_MS) {
+      throw new Error(
+        'formulário de consulta não carregou (portal redirecionou ou mudou). Tente de novo ou abra manualmente Consultar NF-e.'
+      )
+    }
+    const s = await sondar(win)
+    if (s?.temForm) return
+    if (s?.naHome && !clicouMenu) {
+      clicouMenu = true
+      try {
+        await win.webContents.executeJavaScript(SCRIPT_IR_PARA_CONSULTA, true)
+      } catch {
+        /* navegação */
+      }
+    }
+    await sleep(POLL_MS)
+  }
+  throw new Error('cancelado.')
 }
 
 /** Extrai o primeiro .xml de um zip simples (métodos store/deflate). */
@@ -307,12 +372,15 @@ export async function baixarProcNfePortalNacional(params: {
 
       let resultadoChave = ''
       try {
-        await win.loadURL(URL_CONSULTA_COMPLETA)
+        await abrirFormularioConsulta(win, job)
+        if (job.cancelado) break
         const preenchida = (await win.webContents.executeJavaScript(
           scriptPreencherChave(chave, i + 1, chaves.length),
           true
         )) as boolean
-        if (!preenchida) throw new Error('campo de chave de acesso não encontrado no portal')
+        if (!preenchida) {
+          throw new Error('campo de chave de acesso não encontrado no portal (página sem formulário)')
+        }
 
         // 1) usuário resolve o captcha → clicar Continuar
         const inicioCaptcha = Date.now()
