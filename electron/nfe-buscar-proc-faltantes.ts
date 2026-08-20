@@ -63,23 +63,53 @@ export function procNFeJaExiste(pastaRaiz: string, cnpj14: string, chave: string
   return walk(base)
 }
 
-/** Chaves 44 com algum arquivo local, mas sem `*_procNFe.xml`. */
+/** Chaves 44 com algum arquivo local, mas sem `*_procNFe.xml`.
+ * Preferência: chaves com `*_resNFe.xml` e cSitNFe=1 (Autorização de Uso),
+ * depois demais chaves só com evento/resumo.
+ */
 export function listarChavesNfeSemProc(pastaRaiz: string, cnpj14: string): string[] {
   const arquivos = listarXmlsNfeSalvos(pastaRaiz, cnpj14)
-  const porChave = new Map<string, { temProc: boolean; temOutro: boolean }>()
+  const porChave = new Map<
+    string,
+    { temProc: boolean; temResNFe: boolean; temOutro: boolean; cSitNFe?: string }
+  >()
+
   for (const a of arquivos) {
     const ch = a.chave.replace(/\D/g, '')
     if (ch.length !== 44) continue
-    const cur = porChave.get(ch) ?? { temProc: false, temOutro: false }
+    const cur = porChave.get(ch) ?? { temProc: false, temResNFe: false, temOutro: false }
     const nome = path.basename(a.caminho).toLowerCase()
-    if (nome.includes('_procnfe')) cur.temProc = true
-    else cur.temOutro = true
+    if (nome.includes('_procnfe')) {
+      cur.temProc = true
+    } else if (nome.includes('_resnfe')) {
+      cur.temResNFe = true
+      try {
+        const xml = fs.readFileSync(a.caminho, 'utf-8')
+        const m = xml.match(/<(?:[\w.-]+:)?cSitNFe>(\d)<\/(?:[\w.-]+:)?cSitNFe>/i)
+        if (m?.[1]) cur.cSitNFe = m[1]
+      } catch {
+        /* ignora leitura */
+      }
+    } else {
+      cur.temOutro = true
+    }
     porChave.set(ch, cur)
   }
-  return [...porChave.entries()]
-    .filter(([, v]) => !v.temProc && v.temOutro)
-    .map(([ch]) => ch)
-    .sort()
+
+  const autorizadas: string[] = []
+  const demais: string[] = []
+  for (const [ch, v] of porChave) {
+    if (v.temProc) continue
+    if (!v.temResNFe && !v.temOutro) continue
+    // resNFe com cSitNFe=1 = Autorização de Uso (não confundir com evento)
+    if (v.temResNFe && (v.cSitNFe === '1' || !v.cSitNFe)) autorizadas.push(ch)
+    else demais.push(ch)
+  }
+  autorizadas.sort()
+  demais.sort()
+  // Preferir resNFe autorizados; em seguida chaves só com evento (fallback)
+  const soAutorizadas = new Set(autorizadas)
+  return [...autorizadas, ...demais.filter((c) => !soAutorizadas.has(c))]
 }
 
 function chaveEhUfSp(chave: string): boolean {

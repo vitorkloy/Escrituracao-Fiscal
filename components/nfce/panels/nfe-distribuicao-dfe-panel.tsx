@@ -491,15 +491,21 @@ export function NfeDistribuicaoDfePanel({
             </p>
             <ol className="list-decimal pl-4 space-y-1">
               <li>
-                <strong>Sincronizar</strong> DistDFe — grava eventos/resumos e as <strong>chaves</strong> (etapa 1).
+                <strong>Sincronizar</strong> DistDFe — grava <code className="text-[10px]">resNFe</code> (resumo = registro de{' '}
+                <strong>Autorização de Uso</strong>, com <code className="text-[10px]">cSitNFe</code> 1/2/3) e{' '}
+                <code className="text-[10px]">_evento_</code> (ciência, cancelamento, CC-e — <strong>não</strong> são a
+                autorização). Daí saem as <strong>chaves</strong>.
               </li>
               <li>
                 Ao terminar (ou pelo botão abaixo), consulta <strong>NFeConsultaProtocolo4</strong> na SEFAZ-SP por chave
-                (etapa 2, máx. 40/execução, intervalo ~0,6 s; só chaves UF 35).
+                (preferência: chaves com <code className="text-[10px]">resNFe</code> autorizado; máx. 40/execução, UF 35).
               </li>
             </ol>
             <p>
-              Se a SEFAZ-SP devolver só protocolo (sem itens), use a aba <strong>Importar saída</strong> com o XML do ERP.
+              Se a pasta só tiver arquivos <code className="text-[10px]">_evento_</code> e nenhum{' '}
+              <code className="text-[10px]">_resNFe</code>, a etapa 1 pode não estar capturando o resumo de autorização —
+              use filtro &quot;todos&quot; ou confira o log. Se a SEFAZ-SP devolver só protocolo (sem itens), use{' '}
+              <strong>Importar saída</strong> com o XML do ERP.
             </p>
             <p>
               O filtro “papel emitente” grava documentos em que o CNPJ é emitente da chave — inclusive eventos —
@@ -610,9 +616,10 @@ export function NfeDistribuicaoDfePanel({
 
           <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-3 space-y-2 max-w-3xl">
             <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-              <strong className="text-[var(--text-primary)]">Etapa 2 — SEFAZ-SP:</strong> chaves locais com evento/resumo
-              mas sem <code className="text-[10px]">procNFe</code>
-              {chavesSemProc != null ? ` — ${chavesSemProc} encontrada(s)` : ''}. Usa{' '}
+              <strong className="text-[var(--text-primary)]">Etapa 2 — SEFAZ-SP:</strong> prioriza chaves com{' '}
+              <code className="text-[10px]">resNFe</code> (Autorização de Uso) sem{' '}
+              <code className="text-[10px]">procNFe</code>
+              {chavesSemProc != null ? ` — ${chavesSemProc} candidata(s)` : ''}. Usa{' '}
               <code className="text-[10px]">NFeConsultaProtocolo4</code> (máx. 40, intervalo 0,6 s; só UF 35).
             </p>
             <div className="flex flex-wrap gap-2">

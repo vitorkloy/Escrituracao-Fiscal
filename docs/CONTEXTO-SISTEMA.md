@@ -90,7 +90,7 @@ Resumo do que `electron/preload.ts` expõe:
 
 - **NFeDistribuicaoDFe:** produção; `distDFeInt` sem CDATA no SOAP (evitar rejeição por XML mal formado). Recepção de evento com **CDATA** onde o WSDL exige conteúdo literal.
 - **Sincronização por NSU:** pasta raiz configurável; subpastas por CNPJ; estado `.nfe-dist-state.json`; `sync-debug.log`; XMLs em `{ano}/{mes}/` com sufixos `_procNFe`, `_resNFe`, `_evento`, `_outro` para não colidir nota/evento na mesma chave; fallback `sem-data/00` quando não há data. Resultado da sync inclui `salvosPorTipo` (procNFe / resNFe / evento / outro).
-- **Emitente vs destinatário (NT 2014.002):** a DistDFe **não** distribui ao emitente o `procNFe` da própria emissão (`consChNFe` → tipicamente **641**). Fluxo em 2 etapas: (1) DistDFe NSU grava eventos/chaves; (2) `NFeConsultaProtocolo4` SEFAZ-SP por chave (`electron/nfe-consulta-protocolo.ts`, IPC `nfe:buscar-proc-faltantes`) — só UF 35. Se a resposta não trouxer NFe com itens, use **Importar saída** (ERP).
+- **Emitente vs destinatário (NT 2014.002):** DistDFe **não** entrega `procNFe` ao emitente (`consChNFe` → **641**). Na fila, **Autorização de Uso** = documento `resNFe` (`cSitNFe` 1=autorizada, 2=cancelada, 3=denegada) — **não** é “evento”. Eventos = `resEvento` / `_evento_` (ciência, CC-e, cancelamento). Fluxo 2 etapas: DistDFe → chaves (preferir `resNFe` cSit=1) → `NFeConsultaProtocolo4` SP (`nfe:buscar-proc-faltantes`). Fallback: **Importar saída** (ERP).
 - **cStat:** `138` documento(s) localizado(s); `137` nenhum (fim de “sem novos” no fluxo); `656` consumo indevido — UI com **timer** (~1 h típico); registro por certificado via IPC `app.*nfeBlockTimer*`.
 - CNPJ da consulta de sync deve coincidir com o CNPJ do certificado (validação na UI).
 
