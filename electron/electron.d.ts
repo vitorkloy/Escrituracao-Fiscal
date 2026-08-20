@@ -331,6 +331,28 @@ declare global {
           log: string[]
           xMotivo?: string
         }>
+        portalBaixar(opts: { pastaRaiz: string; cnpj14: string; chaves?: string[] }): Promise<{
+          ok: boolean
+          tentadas: number
+          salvos: number
+          ignorados: number
+          falhas: number
+          cancelado: boolean
+          log: string[]
+          xMotivo?: string
+        }>
+        portalCancelar(): Promise<{ ok: boolean }>
+        onPortalProgress(
+          cb: (p: {
+            tipo: 'inicio' | 'chave' | 'status' | 'concluido' | 'erro'
+            chave?: string
+            indice?: number
+            total?: number
+            mensagem?: string
+            salvos?: number
+            falhas?: number
+          }) => void
+        ): () => void
         onBuscarProcProgress(
           cb: (p: {
             tipo: 'inicio' | 'chave' | 'concluido' | 'erro'

@@ -35,6 +35,11 @@ import {
   listarChavesNfeSemProc,
   type NfeBuscarProcProgresso,
 } from './nfe-buscar-proc-faltantes'
+import {
+  baixarProcNfePortalNacional,
+  cancelarPortalNacional,
+  type PortalNacionalProgresso,
+} from './nfe-portal-nacional'
 import { sincronizarDistDfeCte, carregarUltNsuCte } from './cte-dist-dfe-sync'
 import type { CteDistDfeSyncProgresso } from './cte-dist-dfe-sync'
 import { listarXmlsCteSalvos, type CteXmlSalvoInfo } from './cte-list-xmls-local'
@@ -1769,6 +1774,58 @@ ipcMain.handle(
     }
   }
 )
+
+function enviarProgressoPortalNacional(p: PortalNacionalProgresso) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('nfe:portal-progress', p)
+  }
+}
+
+ipcMain.handle(
+  'nfe:portal-baixar',
+  async (_e, opts: { pastaRaiz: string; cnpj14: string; chaves?: string[] }) => {
+    try {
+      const pastaRaiz = String(opts?.pastaRaiz ?? '').trim()
+      const cnpj14 = String(opts?.cnpj14 ?? '').replace(/\D/g, '')
+      if (!pastaRaiz || cnpj14.length !== 14) {
+        return {
+          ok: false,
+          tentadas: 0,
+          salvos: 0,
+          ignorados: 0,
+          falhas: 0,
+          cancelado: false,
+          log: [] as string[],
+          xMotivo: 'Pasta ou CNPJ inválido.',
+        }
+      }
+      const chaves =
+        opts?.chaves && opts.chaves.length > 0
+          ? opts.chaves
+          : listarChavesNfeSemProc(pastaRaiz, cnpj14)
+      return await baixarProcNfePortalNacional({
+        pastaRaiz,
+        cnpj14,
+        chaves,
+        parent: mainWindow,
+        onProgress: enviarProgressoPortalNacional,
+      })
+    } catch (err: unknown) {
+      return {
+        ok: false,
+        tentadas: 0,
+        salvos: 0,
+        ignorados: 0,
+        falhas: 0,
+        cancelado: false,
+        log: [] as string[],
+        xMotivo: mensagemErro(err),
+      }
+    }
+  }
+)
+
+ipcMain.handle('nfe:portal-cancelar', () => ({ ok: cancelarPortalNacional() }))
 
 ipcMain.handle(
   'nfe:sync-dist-dfe',

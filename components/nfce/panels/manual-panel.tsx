@@ -174,11 +174,10 @@ const MANUAL_SECOES_MODULOS: ManualSectionData[] = [
       <>
         <strong>Limite importante (NT 2014.002):</strong> se a empresa é <strong>emitente</strong>, a DistDFe{' '}
         <strong>não</strong> disponibiliza o XML completo (<code className="text-[11px]">procNFe</code>) das NF-e que ela
-        própria emitiu — a fila traz sobretudo <strong>eventos</strong> (ex.: manifestação do destinatário). O XML de
-        saída deve ser guardado no <strong>emissor/ERP</strong> na autorização e importado pela aba{' '}
-        <strong>Importar saída</strong> (organiza em <code className="text-[11px]">CNPJ/ano/mês/*_procNFe.xml</code>) para
-        relatórios. Para <strong>entrada</strong> (destinatário), use ciência da operação e a DistDFe para obter o{' '}
-        <code className="text-[11px]">procNFe</code>.
+        própria emitiu — a fila traz sobretudo <strong>eventos</strong>. Para obter o XML sem pedir ao cliente: use{' '}
+        <strong>Baixar pelo Portal Nacional</strong> (mesmo caminho do FSist — certificado A1 instalado no Windows + captcha
+        por nota). Alternativa: aba <strong>Importar saída</strong> com XMLs do ERP. Para <strong>entrada</strong>{' '}
+        (destinatário), use ciência da operação e a DistDFe para obter o <code className="text-[11px]">procNFe</code>.
       </>,
       <>
         <strong>Códigos frequentes:</strong> <code className="text-[11px]">138</code> há documentos na resposta;{' '}

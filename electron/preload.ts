@@ -112,6 +112,22 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.on('nfe:buscar-proc-progress', fn)
       return () => ipcRenderer.removeListener('nfe:buscar-proc-progress', fn)
     },
+    portalBaixar: (opts: { pastaRaiz: string; cnpj14: string; chaves?: string[] }) =>
+      ipcRenderer.invoke('nfe:portal-baixar', opts),
+    portalCancelar: () => ipcRenderer.invoke('nfe:portal-cancelar'),
+    onPortalProgress: (cb: (p: {
+      tipo: 'inicio' | 'chave' | 'status' | 'concluido' | 'erro'
+      chave?: string
+      indice?: number
+      total?: number
+      mensagem?: string
+      salvos?: number
+      falhas?: number
+    }) => void) => {
+      const fn = (_e: Electron.IpcRendererEvent, p: Parameters<typeof cb>[0]) => cb(p)
+      ipcRenderer.on('nfe:portal-progress', fn)
+      return () => ipcRenderer.removeListener('nfe:portal-progress', fn)
+    },
     onSyncDistProgress: (cb: (p: {
       tipo: 'lote' | 'concluido' | 'erro'
       ultNSU?: string

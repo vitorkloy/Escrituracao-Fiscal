@@ -92,6 +92,8 @@ export function NfeDistribuicaoDfePanel({
   const [buscarProcRodando, setBuscarProcRodando] = useState(false)
   const [chavesSemProc, setChavesSemProc] = useState<number | null>(null)
   const [logBuscarProc, setLogBuscarProc] = useState<string[]>([])
+  const [portalRodando, setPortalRodando] = useState(false)
+  const [logPortal, setLogPortal] = useState<string[]>([])
 
   const [filtroAno, setFiltroAno] = useState('')
   const [filtroMes, setFiltroMes] = useState('')
@@ -117,6 +119,16 @@ export function NfeDistribuicaoDfePanel({
     if (!isElectron) return
     const off = window.electron.nfe.onSyncDistProgress((p) => {
       setLogSync((prev) => [...prev.slice(-120), formatarProgressoSync(p)])
+    })
+    return off
+  }, [isElectron])
+
+  useEffect(() => {
+    if (!isElectron) return
+    const off = window.electron.nfe.onPortalProgress((p) => {
+      const ts = new Date().toLocaleTimeString('pt-BR')
+      const pos = p.indice != null && p.total != null ? ` (${p.indice}/${p.total})` : ''
+      setLogPortal((prev) => [...prev.slice(-80), `[${ts}]${pos} ${p.mensagem ?? p.tipo}`])
     })
     return off
   }, [isElectron])
@@ -268,6 +280,57 @@ export function NfeDistribuicaoDfePanel({
       void atualizarChavesSemProc()
     }
   }, [modo, atualizarEstadoNsu, atualizarChavesSemProc])
+
+  async function executarPortalBaixar() {
+    if (!isElectron) return
+    if (!pastaRaiz.trim()) {
+      showToast('erro', 'Selecione a pasta raiz dos XMLs DistDFe.')
+      return
+    }
+    if (cnpj.replace(/\D/g, '').length !== 14) {
+      showToast('erro', 'Informe o CNPJ com 14 dígitos.')
+      return
+    }
+    setPortalRodando(true)
+    setLogPortal([])
+    onLoadingStateChange({
+      type: 'request',
+      label: 'Portal Nacional: resolva o captcha em cada nota (janela aberta)…',
+    })
+    if (window.electron?.app) window.electron.app.setBusy(true)
+    try {
+      const r = await window.electron.nfe.portalBaixar({
+        pastaRaiz: pastaRaiz.trim(),
+        cnpj14: cnpj.replace(/\D/g, ''),
+      })
+      if (r.log?.length) setLogPortal((prev) => [...prev, ...r.log])
+      if (!r.ok) {
+        showToast('erro', r.xMotivo ?? 'Falha no Portal Nacional.')
+        return
+      }
+      showToast(
+        r.cancelado ? 'info' : 'ok',
+        `Portal: ${r.salvos} salvos · ${r.ignorados} já existiam · ${r.falhas} falhas${r.cancelado ? ' (cancelado)' : ''}.`,
+      )
+      await atualizarChavesSemProc()
+    } catch (err) {
+      showToast('erro', err instanceof Error ? err.message : 'Erro no download pelo Portal Nacional.')
+    } finally {
+      setPortalRodando(false)
+      onLoadingStateChange({ type: null })
+      if (window.electron?.app) window.electron.app.setBusy(false)
+    }
+  }
+
+  async function cancelarPortal() {
+    if (!isElectron) return
+    try {
+      await window.electron.nfe.portalCancelar()
+      showToast('info', 'Cancelamento solicitado — a janela do portal será fechada.')
+    } catch {
+      showToast('erro', 'Não foi possível cancelar.')
+    }
+  }
 
   async function executarBuscarProcFaltantes() {
     if (!isElectron) return
@@ -502,10 +565,9 @@ export function NfeDistribuicaoDfePanel({
               </li>
             </ol>
             <p>
-              Se a pasta só tiver arquivos <code className="text-[10px]">_evento_</code> e nenhum{' '}
-              <code className="text-[10px]">_resNFe</code>, a etapa 1 pode não estar capturando o resumo de autorização —
-              use filtro &quot;todos&quot; ou confira o log. Se a SEFAZ-SP devolver só protocolo (sem itens), use{' '}
-              <strong>Importar saída</strong> com o XML do ERP.
+              Se a SEFAZ-SP devolver só protocolo (sem itens) — o caso típico do emitente — use o botão{' '}
+              <strong>Baixar pelo Portal Nacional</strong> (mesmo caminho do FSist: consulta completa + certificado A1
+              instalado no Windows). Você resolve o captcha; o eFis baixa e grava o <code className="text-[10px]">procNFe</code>.
             </p>
             <p>
               O filtro “papel emitente” grava documentos em que o CNPJ é emitente da chave — inclusive eventos —
@@ -653,6 +715,47 @@ export function NfeDistribuicaoDfePanel({
                 </summary>
                 <pre className="px-3 pb-3 text-[11px] font-mono whitespace-pre-wrap break-all max-h-40 overflow-auto text-[var(--text-muted)]">
                   {logBuscarProc.join('\n')}
+                </pre>
+              </details>
+            )}
+          </div>
+
+          <div className="rounded border border-teal-500/40 bg-teal-500/10 px-3 py-3 space-y-2 max-w-3xl">
+            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+              <strong className="text-[var(--text-primary)]">Portal Nacional (estilo FSist):</strong> usa as chaves já
+              gravadas pela DistDFe (sem <code className="text-[10px]">procNFe</code>
+              {chavesSemProc != null ? ` — ${chavesSemProc}` : ''}) e baixa o XML completo no site da Fazenda. Requisito:{' '}
+              <strong>certificado A1 instalado no Windows</strong> (repositório pessoal), como no FSist. Máx. 20 notas por
+              execução; em cada uma você marca &quot;Sou humano&quot; — o resto é automático.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void executarPortalBaixar()}
+                disabled={portalRodando || syncRodando || buscarProcRodando}
+                className={`flex items-center gap-2 text-sm no-drag ${BUTTON_PRIMARY_CLASS}`}
+              >
+                {portalRodando ? (
+                  <>
+                    <Spinner /> Portal aberto — resolva o captcha…
+                  </>
+                ) : (
+                  'Baixar pelo Portal Nacional (até 20)'
+                )}
+              </button>
+              {portalRodando && (
+                <button type="button" onClick={() => void cancelarPortal()} className={`text-sm no-drag ${BUTTON_SUBTLE_CLASS}`}>
+                  Cancelar
+                </button>
+              )}
+            </div>
+            {logPortal.length > 0 && (
+              <details open className="rounded border border-[var(--border)] bg-[var(--bg-deep)]">
+                <summary className="px-3 py-2 text-xs cursor-pointer text-[var(--text-secondary)]">
+                  Log do Portal Nacional
+                </summary>
+                <pre className="px-3 pb-3 text-[11px] font-mono whitespace-pre-wrap break-all max-h-48 overflow-auto text-[var(--text-muted)]">
+                  {logPortal.join('\n')}
                 </pre>
               </details>
             )}
