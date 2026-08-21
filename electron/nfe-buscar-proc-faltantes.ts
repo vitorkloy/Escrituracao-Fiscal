@@ -16,6 +16,7 @@ import {
 import { extrairXmlRetConsSitNFe, parsearRetConsSitNFe } from './nfe-consulta-protocolo-parser'
 import { extrairAnoMesEmissao } from './nfe-dist-dfe-parser'
 import { listarXmlsNfeSalvos } from './nfe-list-xmls-local'
+import { resolverPastaCnpj } from './pasta-empresa'
 
 export const NFE_BUSCAR_PROC_MAX_POR_EXEC = 40
 export const NFE_BUSCAR_PROC_INTERVALO_MS = 600
@@ -40,7 +41,7 @@ function sleep(ms: number): Promise<void> {
 
 export function procNFeJaExiste(pastaRaiz: string, cnpj14: string, chave: string): boolean {
   const cnpj = cnpj14.replace(/\D/g, '')
-  const base = path.join(pastaRaiz, cnpj)
+  const base = resolverPastaCnpj(pastaRaiz, cnpj)
   if (!fs.existsSync(base)) return false
   const nomeAlvo = `${chave}_procNFe.xml`
   function walk(dir: string): boolean {
@@ -126,7 +127,7 @@ function salvarProcNfeNaPasta(
   const am = extrairAnoMesEmissao(xmlProc)
   const ano = am?.ano ?? `20${chave.slice(2, 4)}`
   const mes = am?.mes ?? chave.slice(4, 6)
-  const dir = path.join(pastaRaiz, cnpj, ano, mes)
+  const dir = path.join(resolverPastaCnpj(pastaRaiz, cnpj), ano, mes)
   fs.mkdirSync(dir, { recursive: true })
   const dest = path.join(dir, `${chave}_procNFe.xml`)
   if (fs.existsSync(dest)) return 'ignorado'
@@ -241,7 +242,7 @@ export async function buscarProcNfeFaltantes(params: {
         semProcNaResposta++
         const hint =
           resumo.cStat === '100'
-            ? 'cStat 100 sem NFe/itens na resposta — use Importar saída (ERP) para o XML completo'
+            ? 'autorizada, mas sem XML completo — use Portal Nacional ou Importar saída'
             : ''
         log.push(
           `[${chave}] [${resumo.cStat}] ${resumo.xMotivo || 'sem procNFe'}${hint ? ` · ${hint}` : ''}`

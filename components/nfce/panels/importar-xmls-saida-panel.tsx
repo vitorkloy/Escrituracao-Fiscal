@@ -62,7 +62,7 @@ export function ImportarXmlsSaidaPanel({
       return
     }
     if (!pastaDestino.trim()) {
-      showToast('erro', 'Selecione a pasta de destino (mesma árvore usada na DistDFe / Relatório Notas).')
+      showToast('erro', 'Selecione a pasta destino (mesma pasta do eFis usada em Baixar documentos / Relatório).')
       return
     }
 
@@ -111,10 +111,15 @@ export function ImportarXmlsSaidaPanel({
   return (
     <div className="fade-in flex flex-col h-full overflow-auto">
       <div className="p-6 pb-4 border-b border-[var(--border)]">
-        <h2 className="text-xl font-semibold text-[var(--text-primary)]">Importar saída ({rotuloDoc})</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-xl font-semibold text-[var(--text-primary)]">Importar saída ({rotuloDoc})</h2>
+          <span className="text-[10px] uppercase tracking-wider rounded border border-teal-500/40 bg-teal-500/10 text-[var(--teal)] px-2 py-0.5">
+            Quando o ERP já tem o XML
+          </span>
+        </div>
         <p className="mt-2 text-sm text-[var(--text-secondary)] max-w-3xl leading-relaxed">
-          A DistDFe <strong className="text-[var(--text-primary)]">não</strong> entrega ao emitente o XML completo das{' '}
-          {rotuloDoc} que a própria empresa autorizou. Use esta aba para copiar os arquivos do{' '}
+          Caminho mais rápido para <strong className="text-[var(--text-primary)]">notas de saída</strong>: a fila da
+          SEFAZ quase nunca entrega o XML completo ao emitente. Copie os arquivos do{' '}
           <strong className="text-[var(--text-primary)]">ERP/emissor</strong> para a pasta do eFis (
           <code className="text-[11px]">CNPJ/ano/mês/{'{chave}'}{sufixo}</code>
           ), depois use o módulo Relatório → Relatório Notas.
@@ -124,9 +129,9 @@ export function ImportarXmlsSaidaPanel({
       <div className="p-6 flex flex-col gap-4 max-w-3xl">
         <div className={`p-4 text-sm leading-relaxed ${SURFACE_CARD_CLASS}`}>
           <p className="text-[var(--text-secondary)]">
-            Aceita varredura recursiva. Mantém só XMLs completos do CNPJ informado (
-            {tipo === 'nfe' ? 'nfeProc / procNFe com itens' : 'cteProc / procCTe'}). Arquivos que já existem no destino são
-            ignorados (não sobrescreve).
+            Varre a pasta de origem de forma recursiva. Mantém só XMLs completos do CNPJ informado (
+            {tipo === 'nfe' ? 'nota com itens' : 'CT-e completo'}). Arquivos que já existem no destino são ignorados
+            (não sobrescreve).
           </p>
         </div>
 
@@ -147,7 +152,7 @@ export function ImportarXmlsSaidaPanel({
               readOnly
               value={pastaOrigem}
               className={`flex-1 px-3 py-2 text-sm ${INPUT_BASE_CLASS}`}
-              placeholder="Selecione a pasta com XMLs exportados…"
+              placeholder="Pasta com XMLs exportados do sistema emissor…"
             />
             <button type="button" onClick={escolherOrigem} className={`px-4 py-2 text-sm shrink-0 ${BUTTON_SUBTLE_CLASS}`}>
               Escolher…
@@ -162,12 +167,16 @@ export function ImportarXmlsSaidaPanel({
               readOnly
               value={pastaDestino}
               className={`flex-1 px-3 py-2 text-sm ${INPUT_BASE_CLASS}`}
-              placeholder="Mesma pasta raiz da DistDFe / Relatório…"
+              placeholder="Mesma pasta do eFis usada em Baixar documentos / Relatório…"
             />
             <button type="button" onClick={escolherDestino} className={`px-4 py-2 text-sm shrink-0 ${BUTTON_SUBTLE_CLASS}`}>
               Escolher…
             </button>
           </div>
+          <p className="text-[10px] text-[var(--text-muted)]">
+            Ex.: <code className="text-[10px]">C:\XMLs\Empresa</code> — o app organiza em{' '}
+            <code className="text-[10px]">CNPJ\ano\mês</code>.
+          </p>
         </div>
 
         <button

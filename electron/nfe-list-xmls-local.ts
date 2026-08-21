@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { resolverPastaCnpj } from './pasta-empresa'
 
 export interface NfeXmlSalvoInfo {
   chave: string
@@ -15,7 +16,7 @@ export function listarXmlsNfeSalvos(
 ): NfeXmlSalvoInfo[] {
   const cnpj = cnpj14.replace(/\D/g, '')
   if (cnpj.length !== 14) return []
-  const base = path.join(pastaRaiz.trim(), cnpj)
+  const base = resolverPastaCnpj(pastaRaiz, cnpj)
   if (!fs.existsSync(base)) return []
 
   const out: NfeXmlSalvoInfo[] = []

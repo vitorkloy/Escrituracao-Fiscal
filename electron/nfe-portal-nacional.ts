@@ -18,6 +18,7 @@ import os from 'os'
 import path from 'path'
 import zlib from 'zlib'
 import { extrairAnoMesEmissao } from './nfe-dist-dfe-parser'
+import { resolverPastaCnpj } from './pasta-empresa'
 
 export const PORTAL_NACIONAL_MAX_POR_EXEC = 20
 
@@ -252,7 +253,7 @@ function salvarProcNfe(
   const am = extrairAnoMesEmissao(xml)
   const ano = am?.ano ?? `20${chave.slice(2, 4)}`
   const mes = am?.mes ?? chave.slice(4, 6)
-  const dir = path.join(pastaRaiz, cnpj14, ano, mes)
+  const dir = path.join(resolverPastaCnpj(pastaRaiz, cnpj14), ano, mes)
   fs.mkdirSync(dir, { recursive: true })
   const dest = path.join(dir, `${chave}_procNFe.xml`)
   if (fs.existsSync(dest)) return 'ignorado'

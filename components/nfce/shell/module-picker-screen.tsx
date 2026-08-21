@@ -14,7 +14,7 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
       <div className="w-full max-w-[820px] rounded border border-[var(--border)] bg-[var(--bg-base)] p-6">
         <h1 className="text-xl font-semibold text-[var(--text-primary)] mb-2">Escolha o módulo</h1>
         <p className="text-sm text-[var(--text-secondary)] mb-5">
-          Selecione qual tipo de documento deseja operar neste acesso.
+          Escolha o que precisa fazer agora. Depois você pode trocar em <strong>Trocar módulo</strong> na barra lateral.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           <button
@@ -26,7 +26,9 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
               <IonIcon icon={receiptOutline} className="w-5 h-5" />
               <span className="font-semibold">NFC-e</span>
             </div>
-            <p className="text-xs text-[var(--text-secondary)]">Serviços de apoio à escrituração da NFC-e.</p>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Cupons fiscais SP: listar, baixar XML e relatório.
+            </p>
           </button>
           <button
             type="button"
@@ -37,7 +39,9 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
               <IonIcon icon={documentTextOutline} className="w-5 h-5" />
               <span className="font-semibold">NF-e</span>
             </div>
-            <p className="text-xs text-[var(--text-secondary)]">Integração de NF-e (v4.00) em fase inicial.</p>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Notas modelo 55: sincronizar fila, completar XML de saída e importar do ERP.
+            </p>
           </button>
           <button
             type="button"
@@ -49,7 +53,7 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
               <span className="font-semibold">CT-e</span>
             </div>
             <p className="text-xs text-[var(--text-secondary)]">
-              Consulta SP por chave e DistDFe AN (NSU), WS v4.00.
+              Conhecimento de transporte: sincronizar fila e consultar por chave (SP).
             </p>
           </button>
           <button
@@ -61,7 +65,9 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
               <IonIcon icon={statsChartOutline} className="w-5 h-5" />
               <span className="font-semibold">Relatório</span>
             </div>
-            <p className="text-xs text-[var(--text-secondary)]">Comparativos XLSX a partir de XMLs da pasta.</p>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Gerar Excel a partir de XMLs já na pasta (sem baixar de novo).
+            </p>
           </button>
           <button
             type="button"
@@ -72,9 +78,14 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
               <IonIcon icon={funnelOutline} className="w-5 h-5" />
               <span className="font-semibold">XML Retenção</span>
             </div>
-            <p className="text-xs text-[var(--text-secondary)]">Classificação de XMLs em com/sem retenção.</p>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Separar XMLs com e sem retenção de impostos.
+            </p>
           </button>
         </div>
+        <p className="mt-5 text-xs text-[var(--text-muted)]">
+          Dúvida? Depois de escolher o módulo, abra <strong>Manual</strong> na barra lateral.
+        </p>
       </div>
     </div>
   )

@@ -48,18 +48,18 @@ function formatarProgressoSync(p: {
 }): string {
   const ts = new Date().toLocaleTimeString('pt-BR')
   if (p.tipo === 'lote') {
-    const filtroLote = (p.loteFiltrados ?? 0) > 0 ? `, ${p.loteFiltrados} filtrados (não gravados)` : ''
+    const filtroLote = (p.loteFiltrados ?? 0) > 0 ? `, ${p.loteFiltrados} fora do filtro` : ''
     const filtroTot =
-      (p.totalFiltrados ?? 0) > 0 ? `, ${p.totalFiltrados} filtrados no acumulado` : ''
-    return `[${ts}] Lote cStat=${p.cStat ?? '—'} +${p.loteSalvos ?? 0} novos, ${p.loteIgnorados ?? 0} já existentes${filtroLote} | ultNSU=${p.ultNSU ?? '—'} | acumulado: ${p.totalSalvos ?? 0} salvos${filtroTot}`
+      (p.totalFiltrados ?? 0) > 0 ? `, ${p.totalFiltrados} fora do filtro (acumulado)` : ''
+    return `[${ts}] Lote (código ${p.cStat ?? '—'}): +${p.loteSalvos ?? 0} novos, ${p.loteIgnorados ?? 0} já na pasta${filtroLote} · ponto da fila ${p.ultNSU ?? '—'} · total salvos ${p.totalSalvos ?? 0}${filtroTot}`
   }
   if (p.tipo === 'concluido') {
-    const filtroFim = (p.totalFiltrados ?? 0) > 0 ? `, ${p.totalFiltrados} filtrados (não gravados)` : ''
-    return `[${ts}] Concluído — total ${p.totalSalvos ?? 0} novos, ${p.totalIgnorados ?? 0} ignorados${filtroFim}. ${p.mensagem ?? ''}`
+    const filtroFim = (p.totalFiltrados ?? 0) > 0 ? `, ${p.totalFiltrados} fora do filtro` : ''
+    return `[${ts}] Concluído — ${p.totalSalvos ?? 0} novos, ${p.totalIgnorados ?? 0} já existiam${filtroFim}. ${p.mensagem ?? ''}`
   }
   const msgErro = `[${ts}] Erro: ${p.mensagem ?? '—'}`
   if (p.cStat === '656') {
-    return `${msgErro} — Aguarde cerca de 1 h antes de nova tentativa; não use “reiniciar NSU” sem necessidade e use o ultNSU da última resposta.`
+    return `${msgErro} — Consulta temporariamente bloqueada. Aguarde ~1 h; não recomece a fila do zero sem necessidade.`
   }
   return msgErro
 }
@@ -284,7 +284,7 @@ export function NfeDistribuicaoDfePanel({
   async function executarPortalBaixar() {
     if (!isElectron) return
     if (!pastaRaiz.trim()) {
-      showToast('erro', 'Selecione a pasta raiz dos XMLs DistDFe.')
+      showToast('erro', 'Selecione a pasta do eFis onde os XMLs serão gravados.')
       return
     }
     if (cnpj.replace(/\D/g, '').length !== 14) {
@@ -310,7 +310,7 @@ export function NfeDistribuicaoDfePanel({
       }
       showToast(
         r.cancelado ? 'info' : 'ok',
-        `Portal: ${r.salvos} salvos · ${r.ignorados} já existiam · ${r.falhas} falhas${r.cancelado ? ' (cancelado)' : ''}.`,
+        `Portal: ${r.salvos} XML(s) completos salvos · ${r.ignorados} já existiam · ${r.falhas} falhas${r.cancelado ? ' (cancelado)' : ''}.`,
       )
       await atualizarChavesSemProc()
     } catch (err) {
@@ -339,7 +339,7 @@ export function NfeDistribuicaoDfePanel({
       return
     }
     if (!pastaRaiz.trim()) {
-      showToast('erro', 'Selecione a pasta raiz dos XMLs DistDFe.')
+      showToast('erro', 'Selecione a pasta do eFis onde os XMLs serão gravados.')
       return
     }
     if (cnpj.replace(/\D/g, '').length !== 14) {
@@ -348,7 +348,7 @@ export function NfeDistribuicaoDfePanel({
     }
     setBuscarProcRodando(true)
     setLogBuscarProc([])
-    onLoadingStateChange({ type: 'request', label: 'Consultando NF-e sem procNFe (SEFAZ-SP)…' })
+    onLoadingStateChange({ type: 'request', label: 'Consultando notas sem XML completo (SEFAZ-SP)…' })
     if (window.electron?.app) window.electron.app.setBusy(true)
     try {
       const r = await window.electron.nfe.buscarProcFaltantes(certificateState as never, {
@@ -360,16 +360,28 @@ export function NfeDistribuicaoDfePanel({
       })
       if (r.log?.length) setLogBuscarProc((prev) => [...prev, ...r.log])
       if (!r.ok) {
-        showToast('erro', r.xMotivo ?? 'Falha ao buscar procNFe.')
+        showToast('erro', r.xMotivo ?? 'Falha ao buscar XML completo.')
         return
       }
-      showToast(
-        'ok',
-        `procNFe: ${r.salvos} salvos · ${r.semProcNaResposta} sem XML completo · ${r.falhas} falhas (${r.candidatos} candidatos, ${r.puladosUf} UF≠SP).`,
-      )
+      if (r.salvos > 0) {
+        showToast(
+          'ok',
+          `${r.salvos} XML(s) completo(s) salvos · ${r.semProcNaResposta} autorizadas sem XML (use Portal ou Importar saída) · ${r.falhas} falhas.`,
+        )
+      } else if (r.semProcNaResposta > 0) {
+        showToast(
+          'info',
+          `SEFAZ-SP confirmou ${r.semProcNaResposta} nota(s), mas sem XML completo (comum em saída). Use o Passo 3 (Portal Nacional) ou a aba Importar saída.`,
+        )
+      } else {
+        showToast(
+          'ok',
+          `Consulta concluída: ${r.salvos} salvos · ${r.semProcNaResposta} sem XML · ${r.falhas} falhas (${r.candidatos} candidatas).`,
+        )
+      }
       await atualizarChavesSemProc()
     } catch (err) {
-      showToast('erro', err instanceof Error ? err.message : 'Erro ao buscar procNFe faltantes.')
+      showToast('erro', err instanceof Error ? err.message : 'Erro ao buscar XML completo.')
     } finally {
       setBuscarProcRodando(false)
       onLoadingStateChange({ type: null })
@@ -384,7 +396,7 @@ export function NfeDistribuicaoDfePanel({
       return
     }
     if (!pastaRaiz.trim()) {
-      showToast('erro', 'Selecione a pasta raiz onde os XMLs serão gravados.')
+      showToast('erro', 'Selecione a pasta do eFis onde os XMLs serão gravados.')
       return
     }
     if (cnpj.replace(/\D/g, '').length !== 14) {
@@ -401,7 +413,7 @@ export function NfeDistribuicaoDfePanel({
       return
     }
     if (!/^\d{2}$/.test(cUFAutor.replace(/\D/g, ''))) {
-      showToast('erro', 'cUFAutor inválido.')
+      showToast('erro', 'UF do autor inválida (use 2 dígitos, ex.: 35 = SP).')
       return
     }
 
@@ -423,19 +435,20 @@ export function NfeDistribuicaoDfePanel({
           r.totalFiltrados > 0 ? `, ${r.totalFiltrados} não gravados (filtro)` : ''
         const t = r.salvosPorTipo
         const partTipos = t
-          ? ` [procNFe ${t.procNFe}, resNFe ${t.resNFe}, evento ${t.evento}, outro ${t.outro}]`
+          ? ` [completos ${t.procNFe}, resumos ${t.resNFe}, eventos ${t.evento}, outros ${t.outro}]`
           : ''
         showToast(
           'ok',
           `Sincronização concluída: ${r.totalSalvos} XML(s) novos, ${r.totalIgnorados} já existentes${partFiltrados}${partTipos} (${r.lotes} lote(s)).`,
         )
+        await atualizarChavesSemProc()
       } else {
         const base = r.xMotivo ?? 'Falha na sincronização.'
         if (base.includes('656')) await registrarBloqueio656()
         showToast(
           'erro',
           base.includes('656')
-            ? `${base} Se apareceu consumo indevido, aguarde ~1 h e evite “reiniciar NSU” sem motivo.`
+            ? `${base} Aguarde ~1 h e evite “recomeçar a fila do zero” sem motivo.`
             : base
         )
       }
@@ -510,13 +523,16 @@ export function NfeDistribuicaoDfePanel({
   return (
     <div className="fade-in h-full overflow-auto p-6 flex flex-col gap-4">
       <div>
-        <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-1">NFeDistribuicaoDFe</h2>
+        <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-1">Baixar documentos da NF-e</h2>
+        <p className="text-sm text-[var(--text-secondary)] max-w-3xl">
+          Sincronize a fila → tente o XML completo → complete no Portal (saída) → depois use Relatório ou Importar saída.
+        </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {btnModo('sincronizacao', 'Sincronização automática')}
-        {btnModo('arquivos-salvos', 'Arquivos salvos')}
-        {btnModo('xml-livre', 'XML livre')}
+        {btnModo('sincronizacao', '1. Sincronizar fila')}
+        {btnModo('arquivos-salvos', 'Arquivos na pasta')}
+        {btnModo('xml-livre', 'Avançado (XML)')}
       </div>
 
       {certId && (
@@ -524,76 +540,85 @@ export function NfeDistribuicaoDfePanel({
           {bloqueioAtivo ? (
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <span className="text-amber-700 dark:text-amber-300/90">
-                cStat 656 registrado para este certificado. Tempo restante estimado:
+                Consulta temporariamente bloqueada (código 656). Tempo restante estimado:
                 {' '}
                 <strong>{formatarTempoRestante((nfeBlockTimer?.retryAtMs ?? 0) - agoraMs)}</strong>
+                {' '}— aguarde ~1 h antes de nova tentativa.
               </span>
             </div>
           ) : (
             <p className="text-xs text-[var(--text-muted)]">
-              Timer de bloqueio (656): sem bloqueio ativo para o certificado atual.
+              Sem bloqueio ativo para o certificado atual.
             </p>
           )}
         </div>
       )}
 
       {modo === 'sincronizacao' && (
-        <div className={`p-4 ${SURFACE_CARD_CLASS} space-y-3`}>
-          <p className="text-xs text-[var(--text-secondary)]">
-            Esta opção consome a fila DistDFe do Ambiente Nacional (NSU) e grava o que a AN disponibilizar
-            para o CNPJ do certificado — tipicamente <strong>resumos</strong>, <strong>eventos</strong> e, para
-            o papel de <strong>destinatário</strong> (após ciência), o XML completo (<code className="text-[10px]">procNFe</code>).
-            O sistema continua de onde parou e não sobrescreve arquivos já salvos.
-          </p>
+        <div className={`p-4 ${SURFACE_CARD_CLASS} space-y-4`}>
+          <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-2 text-[11px] text-[var(--text-secondary)] space-y-1 max-w-3xl">
+            <p className="font-medium text-[var(--text-primary)]">O que cada arquivo significa</p>
+            <ul className="list-disc pl-4 space-y-0.5">
+              <li>
+                <strong>Resumo</strong> — autorização registrada (sem itens da nota).
+              </li>
+              <li>
+                <strong>Evento</strong> — ciência, cancelamento, CC-e etc. <strong>Não</strong> é a nota completa.
+              </li>
+              <li>
+                <strong>XML completo</strong> — nota com itens (o que o Relatório precisa).
+              </li>
+            </ul>
+          </div>
 
-          <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-2 text-[11px] text-[var(--text-secondary)] space-y-1.5 max-w-3xl">
+          <div className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-[var(--text-secondary)] space-y-1 max-w-3xl">
             <p>
-              <strong className="text-[var(--text-primary)]">Notas de saída (você é o emitente):</strong> a DistDFe AN{' '}
-              <strong>não</strong> devolve o <code className="text-[10px]">procNFe</code> da própria emissão (NT 2014.002 /
-              cStat 641 em <code className="text-[10px]">consChNFe</code>). Fluxo em 2 etapas:
-            </p>
-            <ol className="list-decimal pl-4 space-y-1">
-              <li>
-                <strong>Sincronizar</strong> DistDFe — grava <code className="text-[10px]">resNFe</code> (resumo = registro de{' '}
-                <strong>Autorização de Uso</strong>, com <code className="text-[10px]">cSitNFe</code> 1/2/3) e{' '}
-                <code className="text-[10px]">_evento_</code> (ciência, cancelamento, CC-e — <strong>não</strong> são a
-                autorização). Daí saem as <strong>chaves</strong>.
-              </li>
-              <li>
-                Ao terminar (ou pelo botão abaixo), consulta <strong>NFeConsultaProtocolo4</strong> na SEFAZ-SP por chave
-                (preferência: chaves com <code className="text-[10px]">resNFe</code> autorizado; máx. 40/execução, UF 35).
-              </li>
-            </ol>
-            <p>
-              Se a SEFAZ-SP devolver só protocolo (sem itens) — o caso típico do emitente — use o botão{' '}
-              <strong>Baixar pelo Portal Nacional</strong> (mesmo caminho do FSist: consulta completa + certificado A1
-              instalado no Windows). Você resolve o captcha; o eFis baixa e grava o <code className="text-[10px]">procNFe</code>.
+              <strong className="text-[var(--text-primary)]">Atenção:</strong> várias sincronizações seguidas podem
+              bloquear a consulta por cerca de <strong>1 hora</strong>.
             </p>
             <p>
-              O filtro “papel emitente” grava documentos em que o CNPJ é emitente da chave — inclusive eventos —
-              e <strong>não</strong> significa “baixar todas as notas emitidas”.
+              <strong className="text-[var(--text-primary)]">Notas de saída:</strong> a fila sozinha quase nunca traz o
+              XML completo. Use os passos 2–3 ou a aba <strong>Importar saída</strong> (ERP).
             </p>
           </div>
 
-          <div className="rounded border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] text-[var(--text-secondary)] space-y-1.5 max-w-3xl">
-            <p>
-              <strong className="text-[var(--text-primary)]">Atenção:</strong> se tentar sincronizar muitas vezes em
-              sequência, a consulta pode ser bloqueada temporariamente. Se isso acontecer, aguarde cerca de{' '}
-              <strong>1 hora</strong> para tentar novamente.
-            </p>
-            <p>
-              <strong className="text-[var(--text-primary)]">“Reiniciar do NSU zero”:</strong> use apenas quando for
-              realmente necessário, pois pode aumentar a chance de bloqueio.
-            </p>
-          </div>
+          {(chavesSemProc ?? 0) > 0 && (
+            <div className="rounded border border-teal-500/40 bg-teal-500/10 px-3 py-2 text-[11px] text-[var(--text-secondary)] max-w-3xl space-y-1">
+              <p className="font-medium text-[var(--text-primary)]">
+                {chavesSemProc} nota(s) sem XML completo nesta pasta
+              </p>
+              <ol className="list-decimal pl-4 space-y-0.5">
+                <li>Tente o Passo 2 (SEFAZ-SP) — sem captcha.</li>
+                <li>Se não vier o XML, use o Passo 3 (Portal Nacional) ou Importar saída.</li>
+                <li>Depois: módulo Relatório → Relatório Notas.</li>
+              </ol>
+            </div>
+          )}
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => void escolherPasta()} className={`px-3 py-2 text-sm no-drag ${BUTTON_PRIMARY_CLASS}`}>
-              Escolher pasta raiz
-            </button>
-            <span className="text-xs text-[var(--text-muted)] truncate max-w-[min(100%,320px)]" title={pastaRaiz || undefined}>
-              {pastaRaiz || 'Nenhuma pasta selecionada'}
-            </span>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+              Pasta do eFis
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void escolherPasta()}
+                className={`px-3 py-2 text-sm no-drag ${BUTTON_SUBTLE_CLASS}`}
+              >
+                Escolher pasta do eFis
+              </button>
+              <span
+                className="text-xs text-[var(--text-muted)] truncate max-w-[min(100%,320px)]"
+                title={pastaRaiz || undefined}
+              >
+                {pastaRaiz || 'Nenhuma pasta selecionada'}
+              </span>
+            </div>
+            <p className="text-[10px] text-[var(--text-muted)] max-w-3xl">
+              Ex.: <code className="text-[10px]">C:\XMLs\Empresa</code> — o app grava em{' '}
+              <code className="text-[10px]">pasta\CNPJ\ano\mês</code>. Aceita a pasta pai ou a pasta do CNPJ. Use a{' '}
+              <strong>mesma pasta</strong> em Importar saída e no Relatório.
+            </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -609,14 +634,18 @@ export function NfeDistribuicaoDfePanel({
               />
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">cUFAutor</label>
+              <label className="block text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1">
+                UF do autor (código IBGE)
+              </label>
               <input
                 type="text"
                 inputMode="numeric"
                 value={cUFAutor}
                 onChange={(e) => setCUFAutor(e.target.value.replace(/\D/g, '').slice(0, 2))}
                 className={INPUT_BASE_CLASS}
+                title="35 = São Paulo"
               />
+              <p className="text-[10px] text-[var(--text-muted)] mt-1">35 = SP</p>
             </div>
           </div>
 
@@ -630,15 +659,14 @@ export function NfeDistribuicaoDfePanel({
               disabled={syncRodando}
               className={`${INPUT_BASE_CLASS} max-w-xl`}
             >
-              <option value="todos">Todos os documentos retornados na fila</option>
-              <option value="emitente">Papel emitente (eventos/docs em que o CNPJ é emitente da chave)</option>
-              <option value="destinatario">Papel destinatário (entrada — preferível para procNFe completo)</option>
+              <option value="todos">Tudo que a fila devolver</option>
+              <option value="emitente">
+                Saída — documentos em que o CNPJ é emitente (não traz o XML completo sozinho)
+              </option>
+              <option value="destinatario">
+                Entrada — destinatário (melhor caminho para XML completo via fila)
+              </option>
             </select>
-            <p className="text-[10px] text-[var(--text-muted)] mt-1 max-w-2xl">
-              “Papel emitente” <strong>não</strong> baixa o XML das notas que você emitiu. Eventos entram se a chave for
-              de nota emitida pelo CNPJ. Resumos <code className="text-[10px]">resNFe</code> sem tag{' '}
-              <code className="text-[10px]">dest</code> não servem para o filtro “destinatário”.
-            </p>
           </div>
 
           <label className="flex items-start gap-2 text-xs text-[var(--text-secondary)] cursor-pointer no-drag">
@@ -649,40 +677,55 @@ export function NfeDistribuicaoDfePanel({
               className="rounded border-[var(--border)] mt-0.5"
             />
             <span>
-              Reiniciar do NSU zero (ignora <code className="text-[10px]">.nfe-dist-state.json</code>). Só use se
-              precisar reprocessar do início; caso contrário mantém risco de <strong>656</strong>.
+              Recomeçar a fila do zero (só se necessário — aumenta chance de bloqueio).
             </span>
           </label>
 
           <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-muted)]">
-            <span>Último NSU no disco: {ultNsuPersistido ?? '— (ainda não há estado ou pasta inválida)'}</span>
-            <button type="button" onClick={() => void atualizarEstadoNsu()} className="text-[var(--teal)] underline no-drag">
+            <span>
+              Ponto de continuação da fila:{' '}
+              {ultNsuPersistido ?? '— (ainda não há estado ou pasta inválida)'}
+            </span>
+            <button
+              type="button"
+              onClick={() => void atualizarEstadoNsu()}
+              className="text-[var(--teal)] underline no-drag"
+            >
               Atualizar leitura
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => void executarSincronizacao()}
-            disabled={syncRodando || buscarProcRodando || bloqueioAtivo}
-            className={`flex items-center gap-2 px-4 py-2 no-drag ${BUTTON_PRIMARY_CLASS}`}
-          >
-            {syncRodando ? (
-              <>
-                <Spinner /> Sincronizando…
-              </>
-            ) : (
-              'Sincronizar agora'
-            )}
-          </button>
+          <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-3 space-y-2 max-w-3xl">
+            <p className="text-xs font-semibold text-[var(--text-primary)]">
+              Passo 1 — Buscar na fila (chaves, resumos e eventos)
+            </p>
+            <p className="text-[11px] text-[var(--text-secondary)]">
+              Continua de onde parou e não sobrescreve arquivos já salvos.
+            </p>
+            <button
+              type="button"
+              onClick={() => void executarSincronizacao()}
+              disabled={syncRodando || buscarProcRodando || bloqueioAtivo}
+              className={`flex items-center gap-2 px-4 py-2 no-drag ${BUTTON_PRIMARY_CLASS}`}
+            >
+              {syncRodando ? (
+                <>
+                  <Spinner /> Sincronizando…
+                </>
+              ) : (
+                'Sincronizar agora'
+              )}
+            </button>
+          </div>
 
           <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-3 space-y-2 max-w-3xl">
-            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-              <strong className="text-[var(--text-primary)]">Etapa 2 — SEFAZ-SP:</strong> prioriza chaves com{' '}
-              <code className="text-[10px]">resNFe</code> (Autorização de Uso) sem{' '}
-              <code className="text-[10px]">procNFe</code>
-              {chavesSemProc != null ? ` — ${chavesSemProc} candidata(s)` : ''}. Usa{' '}
-              <code className="text-[10px]">NFeConsultaProtocolo4</code> (máx. 40, intervalo 0,6 s; só UF 35).
+            <p className="text-xs font-semibold text-[var(--text-primary)]">
+              Passo 2 — Tentar XML completo (SEFAZ-SP, sem captcha)
+            </p>
+            <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+              Consulta até 40 notas sem XML completo
+              {chavesSemProc != null ? ` (${chavesSemProc} candidata(s) agora)` : ''}. Em notas de{' '}
+              <strong>saída</strong>, a SEFAZ costuma confirmar a autorização sem devolver o XML — aí vá ao Passo 3.
             </p>
             <div className="flex flex-wrap gap-2">
               <button
@@ -691,7 +734,7 @@ export function NfeDistribuicaoDfePanel({
                 disabled={buscarProcRodando || syncRodando}
                 className={`text-xs no-drag ${BUTTON_TEAL_GHOST_CLASS}`}
               >
-                Contar chaves sem procNFe
+                Contar notas sem XML completo
               </button>
               <button
                 type="button"
@@ -704,7 +747,7 @@ export function NfeDistribuicaoDfePanel({
                     <Spinner /> Consultando SP…
                   </>
                 ) : (
-                  'Buscar XML completo (SEFAZ-SP, até 40)'
+                  'Buscar XML completo (até 40)'
                 )}
               </button>
             </div>
@@ -721,19 +764,23 @@ export function NfeDistribuicaoDfePanel({
           </div>
 
           <div className="rounded border border-teal-500/40 bg-teal-500/10 px-3 py-3 space-y-2 max-w-3xl">
-            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-              <strong className="text-[var(--text-primary)]">Portal Nacional (estilo FSist):</strong> usa as chaves já
-              gravadas pela DistDFe (sem <code className="text-[10px]">procNFe</code>
-              {chavesSemProc != null ? ` — ${chavesSemProc}` : ''}) e baixa o XML completo no site da Fazenda. Requisito:{' '}
-              <strong>certificado A1 instalado no Windows</strong> (repositório pessoal), como no FSist. Máx. 20 notas por
-              execução; em cada uma você marca &quot;Sou humano&quot; — o resto é automático.
+            <p className="text-xs font-semibold text-[var(--text-primary)]">
+              Passo 3 — Completar no Portal Nacional (saída)
+            </p>
+            <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+              Baixa o XML completo no site da Fazenda com as chaves já na pasta
+              {chavesSemProc != null ? ` (${chavesSemProc} sem XML completo)` : ''}. Requisito:{' '}
+              <strong>certificado A1 no Windows</strong>. Até 20 notas por execução; em cada uma marque &quot;Sou
+              humano&quot; — o resto é automático.
             </p>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => void executarPortalBaixar()}
                 disabled={portalRodando || syncRodando || buscarProcRodando}
-                className={`flex items-center gap-2 text-sm no-drag ${BUTTON_PRIMARY_CLASS}`}
+                className={`flex items-center gap-2 text-sm no-drag ${
+                  (chavesSemProc ?? 0) > 0 ? BUTTON_PRIMARY_CLASS : BUTTON_SUBTLE_CLASS
+                }`}
               >
                 {portalRodando ? (
                   <>
@@ -744,7 +791,11 @@ export function NfeDistribuicaoDfePanel({
                 )}
               </button>
               {portalRodando && (
-                <button type="button" onClick={() => void cancelarPortal()} className={`text-sm no-drag ${BUTTON_SUBTLE_CLASS}`}>
+                <button
+                  type="button"
+                  onClick={() => void cancelarPortal()}
+                  className={`text-sm no-drag ${BUTTON_SUBTLE_CLASS}`}
+                >
                   Cancelar
                 </button>
               )}
@@ -761,9 +812,14 @@ export function NfeDistribuicaoDfePanel({
             )}
           </div>
 
+          <p className="text-[11px] text-[var(--text-muted)] max-w-3xl">
+            Passo 4 — Com os XMLs completos na pasta, abra o módulo <strong>Relatório</strong> → Relatório Notas. Se o
+            ERP já tiver os arquivos, prefira a aba <strong>Importar saída</strong> (sem captcha).
+          </p>
+
           {logSync.length > 0 && (
             <div className="mt-2">
-              <p className="text-[10px] uppercase text-[var(--text-muted)] mb-1">Log</p>
+              <p className="text-[10px] uppercase text-[var(--text-muted)] mb-1">Log da sincronização</p>
               <pre className="text-[11px] font-mono whitespace-pre-wrap break-all max-h-56 overflow-auto p-2 rounded border border-[var(--border)] bg-[var(--bg-deep)] text-[var(--text-secondary)]">
                 {logSync.join('\n')}
               </pre>
@@ -775,11 +831,16 @@ export function NfeDistribuicaoDfePanel({
       {modo === 'arquivos-salvos' && (
         <div className={`p-4 ${SURFACE_CARD_CLASS} space-y-3`}>
           <p className="text-xs text-[var(--text-secondary)]">
-            Lista XMLs já salvos na estrutura <code className="text-[11px]">CNPJ/ano/mês/*.xml</code>. Filtre por ano e/ou mês (opcional).
+            Lista XMLs já salvos em <code className="text-[11px]">CNPJ/ano/mês/*.xml</code>. Filtre por ano e/ou mês
+            (opcional).
           </p>
           <div className="flex flex-wrap gap-2 items-end">
-            <button type="button" onClick={() => void escolherPasta()} className={`px-3 py-2 text-sm no-drag ${BUTTON_PRIMARY_CLASS}`}>
-              Pasta raiz
+            <button
+              type="button"
+              onClick={() => void escolherPasta()}
+              className={`px-3 py-2 text-sm no-drag ${BUTTON_SUBTLE_CLASS}`}
+            >
+              Pasta do eFis
             </button>
             <div>
               <label className="block text-[10px] uppercase text-[var(--text-muted)] mb-1">Ano</label>
@@ -799,11 +860,18 @@ export function NfeDistribuicaoDfePanel({
                 placeholder="03"
               />
             </div>
-            <button type="button" onClick={() => void carregarListaArquivos()} className={`px-3 py-2 text-sm no-drag ${BUTTON_PRIMARY_CLASS}`}>
+            <button
+              type="button"
+              onClick={() => void carregarListaArquivos()}
+              className={`px-3 py-2 text-sm no-drag ${BUTTON_PRIMARY_CLASS}`}
+            >
               Listar
             </button>
           </div>
-          <p className="text-xs text-[var(--text-muted)]">{pastaRaiz || 'Selecione a pasta raiz'} · CNPJ {cnpj.replace(/\D/g, '').length === 14 ? cnpj : '—'}</p>
+          <p className="text-xs text-[var(--text-muted)]">
+            {pastaRaiz || 'Selecione a pasta do eFis'} · CNPJ{' '}
+            {cnpj.replace(/\D/g, '').length === 14 ? cnpj : '—'}
+          </p>
 
           <div className="max-h-64 overflow-auto border border-[var(--border)] rounded">
             <table className="w-full text-xs">
@@ -835,7 +903,9 @@ export function NfeDistribuicaoDfePanel({
               </tbody>
             </table>
             {listaArquivos.length > 200 && (
-              <p className="p-2 text-[10px] text-[var(--text-muted)]">Mostrando 200 de {listaArquivos.length}.</p>
+              <p className="p-2 text-[10px] text-[var(--text-muted)]">
+                Mostrando 200 de {listaArquivos.length}.
+              </p>
             )}
           </div>
 
@@ -858,7 +928,8 @@ export function NfeDistribuicaoDfePanel({
       {modo === 'xml-livre' && (
         <>
           <p className="text-xs text-[var(--text-secondary)]">
-            Cole o XML de <code className="text-[11px]">nfeDadosMsg</code> (ex. <code className="text-[11px]">distDFeInt</code>).
+            Uso avançado: cole o XML da mensagem DistDFe (corpo da consulta). Preferível usar{' '}
+            <strong>1. Sincronizar fila</strong>.
           </p>
           <textarea
             value={xml}
@@ -885,13 +956,13 @@ export function NfeDistribuicaoDfePanel({
 
       {resumoDist !== null && modo === 'xml-livre' && (
         <div className={`p-3 ${SURFACE_CARD_CLASS} border-l-2 border-[var(--teal-dim)]`}>
-          <p className="text-[10px] uppercase text-[var(--text-muted)] mb-1">retDistDFeInt (resumo)</p>
+          <p className="text-[10px] uppercase text-[var(--text-muted)] mb-1">Resumo da resposta</p>
           <p className="text-sm text-[var(--text-primary)]">
-            <strong>cStat {resumoDist.cStat}</strong>
+            <strong>Código {resumoDist.cStat}</strong>
             {' · '}
-            <span className="font-mono text-[11px]">ultNSU {resumoDist.ultNSU}</span>
+            <span className="font-mono text-[11px]">fila {resumoDist.ultNSU}</span>
             {' · '}
-            <span className="font-mono text-[11px]">maxNSU {resumoDist.maxNSU}</span>
+            <span className="font-mono text-[11px]">máx. {resumoDist.maxNSU}</span>
           </p>
           <p className="text-xs text-[var(--text-secondary)] mt-1">{resumoDist.xMotivo || '—'}</p>
         </div>
@@ -899,7 +970,7 @@ export function NfeDistribuicaoDfePanel({
 
       {resposta !== null && modo === 'xml-livre' && (
         <div className={`p-4 ${SURFACE_CARD_CLASS} flex-1 min-h-0 flex flex-col`}>
-          <p className="text-xs text-[var(--text-muted)] mb-2">Resposta (XML bruto SOAP)</p>
+          <p className="text-xs text-[var(--text-muted)] mb-2">Resposta (XML bruto)</p>
           <pre className="text-xs font-mono whitespace-pre-wrap break-all overflow-auto max-h-[420px] text-[var(--text-primary)]">
             {resposta || '—'}
           </pre>

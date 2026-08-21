@@ -27,24 +27,16 @@ const MANUAL_VISAO_GERAL: ManualSectionData = {
   titulo: 'Visão geral do eFis',
   itens: [
     <>
-      O <strong>eFis</strong> (Escrituração Fiscal) é um aplicativo <strong>desktop</strong> para Windows que fala com a{' '}
-      <strong>SEFAZ-SP</strong> e o <strong>Ambiente Nacional</strong> usando o seu <strong>certificado digital e-CNPJ</strong>{' '}
-      (<abbr title="Transport Layer Security">TLS</abbr> mútuo). O certificado <strong>não</strong> é enviado para servidores da
-      empresa: a ligação é feita a partir do seu computador.
+      O <strong>eFis</strong> é o aplicativo desktop para Windows que consulta a SEFAZ e o Ambiente Nacional com o seu{' '}
+      <strong>certificado e-CNPJ</strong>. O certificado fica no seu computador — não é enviado para servidores da empresa.
     </>,
     <>
-      Ao abrir, aparece a tela <strong>Escolha o módulo</strong>. Nenhum módulo fica “ativo” até você clicar num cartão. Depois disso,
-      use <strong>Trocar módulo</strong> na barra lateral para voltar à escolha.
+      Ao abrir, escolha o módulo. Depois use <strong>Trocar módulo</strong> na barra lateral para voltar à escolha.
     </>,
     <>
-      Módulos disponíveis: <strong>NFC-e</strong> (SP), <strong>NF-e</strong> (AN), <strong>CT-e</strong> (consulta SP + DistDFe AN),{' '}
-      <strong>Relatório</strong> (XLSX a partir de pasta de XMLs) e <strong>XML Retenção</strong> (classificação de XMLs). O detalhe
-      de cada um está na aba <strong>Módulos</strong> deste manual.
-    </>,
-    <>
-      Para diagnóstico técnico, o desenvolvimento pode usar variáveis de ambiente como{' '}
-      <code className="text-[11px]">DEBUG=sefaz</code> ou <code className="text-[11px]">DEBUG=cte</code> no processo Electron (ver
-      documentação do projeto).
+      Módulos: <strong>NFC-e</strong> (cupons SP), <strong>NF-e</strong> (notas 55), <strong>CT-e</strong> (frete),{' '}
+      <strong>Relatório</strong> (Excel a partir da pasta) e <strong>XML Retenção</strong>. Detalhes na aba{' '}
+      <strong>Módulos</strong>.
     </>,
   ],
 }
@@ -101,18 +93,16 @@ const MANUAL_CERTIFICADOS: ManualSectionData = {
 }
 
 const MANUAL_OBSERVACOES: ReactNode[] = [
-  <>Não feche o aplicativo durante busca longa, download em lote ou sincronização NF-e — pode perder progresso ou interromper a ligação.</>,
+  <>Não feche o aplicativo durante busca longa, download em lote ou sincronização — pode perder progresso.</>,
   <>
-    No módulo <strong>NFC-e</strong>, a aba <strong>Relatório</strong> gera o mesmo tipo de XLSX a partir da pasta; na entrada inicial,
-    o cartão <strong>Relatório</strong> é para quem só precisa dessa função.
+    No módulo <strong>NFC-e</strong>, a aba <strong>Relatório</strong> gera Excel a partir da pasta; o cartão{' '}
+    <strong>Relatório</strong> na escolha inicial é para quem só precisa dessa função.
   </>,
   <>
-    Em caso de dúvida sobre códigos <code className="text-[11px]">cStat</code> ou formatos de XML, consulte o ficheiro{' '}
-    <code className="text-[11px]">CONTEXTO.md</code> e o <code className="text-[11px]">README.md</code> na pasta do projeto.
+    Bloqueio da SEFAZ (código 656): aguarde o temporizador na tela (~1 h). Não recomece a fila do zero sem necessidade.
   </>,
   <>
-    Portais oficiais: NFC-e SP (<code className="text-[11px]">nfce.fazenda.sp.gov.br</code>), CT-e e NF-e no portal da{' '}
-    <strong>NF-e</strong> / documentação da Receita Federal.
+    Portais oficiais: NFC-e SP e o portal nacional da NF-e.
   </>,
 ]
 
@@ -151,43 +141,38 @@ const MANUAL_SECOES_MODULOS: ManualSectionData[] = [
     ],
   },
   {
-    titulo: 'Módulo NF-e (Ambiente Nacional)',
+    titulo: 'Módulo NF-e (notas modelo 55)',
     itens: [
       <>
-        <strong>O que faz:</strong> integração com serviços da <strong>Receita / AN</strong> em produção:{' '}
-        <strong>NFeDistribuicaoDFe</strong> (consulta por XML ou sincronização por NSU), <strong>NFeRecepcaoEvento4</strong> (envio de
-        eventos) e listagem dos XMLs já gravados em disco.
+        <strong>O que faz:</strong> sincroniza a fila de documentos, tenta completar o XML, baixa pelo Portal Nacional
+        (saída) e importa XMLs do ERP. Também envia eventos (ciência, etc.).
       </>,
       <>
-        <strong>Abas:</strong> <strong>Certificado</strong>, <strong>Distribuição DFe</strong>, <strong>Importar saída</strong>,{' '}
-        <strong>Recepção evento</strong>.
+        <strong>Abas:</strong> <strong>Certificado</strong>, <strong>Baixar documentos</strong>,{' '}
+        <strong>Importar saída</strong>, <strong>Recepção evento</strong>.
       </>,
       <>
-        <strong>Sincronização por NSU:</strong> indique pasta raiz e o <strong>CNPJ de 14 dígitos</strong> (deve ser o mesmo CNPJ do
-        certificado). O app guarda estado (<code className="text-[11px]">.nfe-dist-state.json</code>), registo de diagnóstico (
-        <code className="text-[11px]">sync-debug.log</code>) e XMLs em subpastas <code className="text-[11px]">{`{ano}/{mes}`}</code>{' '}
-        com nomes que incluem sufixos como <code className="text-[11px]">_procNFe</code>, <code className="text-[11px]">_resNFe</code>,{' '}
-        <code className="text-[11px]">_evento</code>, para não sobrescrever nota e evento da mesma chave. Ao concluir, o
-        resumo mostra quantos arquivos novos foram <code className="text-[11px]">procNFe</code> /{' '}
-        <code className="text-[11px]">resNFe</code> / <code className="text-[11px]">evento</code>.
+        <strong>Fluxo guiado (saída):</strong> (1) <strong>Sincronizar fila</strong> — grava resumos e eventos com as
+        chaves; (2) <strong>Buscar XML completo</strong> na SEFAZ-SP (sem captcha; muitas vezes não devolve o XML ao
+        emitente); (3) <strong>Portal Nacional</strong> — marque “Sou humano” em cada nota; (4) módulo{' '}
+        <strong>Relatório</strong>. Se o ERP já tiver os arquivos, use <strong>Importar saída</strong> e pule o Portal.
       </>,
       <>
-        <strong>Limite importante (NT 2014.002):</strong> se a empresa é <strong>emitente</strong>, a DistDFe{' '}
-        <strong>não</strong> disponibiliza o XML completo (<code className="text-[11px]">procNFe</code>) das NF-e que ela
-        própria emitiu — a fila traz sobretudo <strong>eventos</strong>. Para obter o XML sem pedir ao cliente: use{' '}
-        <strong>Baixar pelo Portal Nacional</strong> (mesmo caminho do FSist — certificado A1 instalado no Windows + captcha
-        por nota). Alternativa: aba <strong>Importar saída</strong> com XMLs do ERP. Para <strong>entrada</strong>{' '}
-        (destinatário), use ciência da operação e a DistDFe para obter o <code className="text-[11px]">procNFe</code>.
+        <strong>Pastas:</strong> escolha a <strong>pasta do eFis</strong> (pai ou pasta do CNPJ). Os arquivos ficam em{' '}
+        <code className="text-[11px]">CNPJ/ano/mês</code>. Use a <strong>mesma pasta</strong> em Importar saída e no
+        Relatório.
       </>,
       <>
-        <strong>Códigos frequentes:</strong> <code className="text-[11px]">138</code> há documentos na resposta;{' '}
-        <code className="text-[11px]">137</code> nenhum documento novo nesse ciclo; <code className="text-[11px]">656</code> consumo
-        indevido — a interface pode mostrar <strong>temporizador</strong> de espera; não há botão para “limpar” esse bloqueio
-        manualmente.
+        <strong>Glossário:</strong> <em>resumo</em> = autorização sem itens; <em>evento</em> = ciência/cancelamento/CC-e
+        (não é a nota); <em>XML completo</em> = nota com itens (o Relatório precisa deste).
       </>,
       <>
-        <strong>Recepção de evento:</strong> cole o XML que iria dentro de <code className="text-[11px]">nfeDadosMsg</code> (por exemplo
-        lote com <code className="text-[11px]">envEvento</code>). O aplicativo trata o envelope SOAP e CDATA conforme o serviço exige.
+        <strong>Bloqueio (código 656):</strong> a tela mostra um temporizador (~1 h). Não recomece a fila do zero sem
+        necessidade.
+      </>,
+      <>
+        <strong>Recepção de evento:</strong> cole o XML do evento (ciência etc.) e envie. Uso avançado — a maioria dos
+        casos de escrituração fica em Baixar documentos / Importar saída.
       </>,
     ],
   },

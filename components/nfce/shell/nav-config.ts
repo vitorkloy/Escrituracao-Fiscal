@@ -20,7 +20,7 @@ export const NFCE_NAV_TABS: NavTabConfig[] = [
 
 export const NFE_NAV_TABS: NavTabConfig[] = [
   { id: 'config', label: 'Certificado', icon: settingsOutline },
-  { id: 'nfe-dist-dfe', label: 'Distribuição DFe', icon: cloudDownloadOutline },
+  { id: 'nfe-dist-dfe', label: 'Baixar documentos', icon: cloudDownloadOutline },
   { id: 'nfe-importar-saida', label: 'Importar saída', icon: folderOpenOutline },
   { id: 'nfe-recepcao-evento', label: 'Recepção evento', icon: sendOutline },
 ]
