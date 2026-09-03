@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import ExcelJS from 'exceljs'
 import { XMLParser } from 'fast-xml-parser'
+import { xmlEhCfeCanc, xmlEhCfeSatCompleto } from './sat-cfe-parser'
 
 /** Uma linha do relatório Notas — 1 item por linha (layout FSist 61 colunas). */
 export interface RelatorioNotasLinha {
@@ -249,15 +250,20 @@ function formatarDoc(raw: string): string {
 }
 
 /** Converte dhEmi ISO → dd/MM/yyyy HH:mm:ss */
-export function formatarDhEmiRelatorio(dhEmi: string): string {
+export function formatarDhEmiRelatorio(dhEmi: string, hEmi?: string): string {
   const m = dhEmi.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/)
-  if (!m) {
-    // dEmi antigo YYYY-MM-DD
-    const d = dhEmi.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-    if (d) return `${d[3]}/${d[2]}/${d[1]} 00:00:00`
-    return dhEmi
+  if (m) return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}:${m[6]}`
+  const dIso = dhEmi.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (dIso) return `${dIso[3]}/${dIso[2]}/${dIso[1]} 00:00:00`
+  const compacto = dhEmi.replace(/\D/g, '')
+  if (compacto.length === 8) {
+    const hora = (hEmi ?? '').replace(/\D/g, '').padEnd(6, '0').slice(0, 6)
+    const hh = hora.slice(0, 2)
+    const mm = hora.slice(2, 4)
+    const ss = hora.slice(4, 6)
+    return `${compacto.slice(6, 8)}/${compacto.slice(4, 6)}/${compacto.slice(0, 4)} ${hh}:${mm}:${ss}`
   }
-  return `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}:${m[6]}`
+  return dhEmi
 }
 
 function limparNomeArquivo(base: string): string {
@@ -436,12 +442,14 @@ export function contarDetItensNoXml(xmlStr: string): number {
 }
 
 export function xmlElegivelRelatorioNotas(conteudo: string): boolean {
+  if (xmlEhCfeCanc(conteudo) && !xmlEhCfeSatCompleto(conteudo)) return false
+  if (xmlEhCfeSatCompleto(conteudo)) return true
   if (!/<(?:[\w.-]+:)?infNFe\b/i.test(conteudo)) return false
   return contarDetItensNoXml(conteudo) > 0
 }
 
 function ehArquivoEventoPorNome(nome: string): boolean {
-  return /_evento/i.test(nome) || /procEvento/i.test(nome)
+  return /_evento/i.test(nome) || /procEvento/i.test(nome) || /_cancCFe\.xml$/i.test(nome)
 }
 
 function ehArquivoResumoPorNome(nome: string): boolean {
@@ -452,6 +460,7 @@ function prioridadeArquivo(nome: string, qtdItens: number): number {
   // Preferir procNFe / nfeProc completos; desempate por quantidade de itens
   let p = qtdItens * 10
   if (/_procNFe\.xml$/i.test(nome) || /nfeProc/i.test(nome)) p += 1000
+  if (/_cfeSat\.xml$/i.test(nome)) p += 800
   if (ehArquivoResumoPorNome(nome)) p -= 500
   return p
 }
@@ -501,6 +510,51 @@ function localizarInfNFe(parsed: unknown): Record<string, unknown> | null {
     }
   }
   return null
+}
+
+function localizarInfCFe(parsed: unknown): Record<string, unknown> | null {
+  if (parsed == null || typeof parsed !== 'object') return null
+  const root = parsed as Record<string, unknown>
+
+  const tryInf = (obj: unknown): Record<string, unknown> | null => {
+    if (obj == null || typeof obj !== 'object' || Array.isArray(obj)) return null
+    const o = obj as Record<string, unknown>
+    if (o.infCFe && typeof o.infCFe === 'object' && !Array.isArray(o.infCFe)) {
+      return o.infCFe as Record<string, unknown>
+    }
+    return null
+  }
+
+  const viaCfe = tryInf(root.CFe)
+  if (viaCfe) return viaCfe
+  const direto = tryInf(root)
+  if (direto) return direto
+
+  const stack: unknown[] = [root]
+  let guard = 0
+  while (stack.length && guard++ < 200) {
+    const cur = stack.pop()
+    if (cur == null || typeof cur !== 'object') continue
+    if (Array.isArray(cur)) {
+      stack.push(...cur)
+      continue
+    }
+    const hit = tryInf(cur)
+    if (hit) return hit
+    for (const [k, v] of Object.entries(cur as Record<string, unknown>)) {
+      if (k.startsWith('@_')) continue
+      if (v && typeof v === 'object') stack.push(v)
+    }
+  }
+  return null
+}
+
+function chaveDeInfCFe(inf: Record<string, unknown>, xmlFallback: string): string {
+  const id = texto(inf['@_Id']) || texto((inf as { Id?: unknown }).Id)
+  const m = id.match(/CFe(\d{44})/i)
+  if (m) return m[1]
+  const fromXml = xmlFallback.match(/<(?:[\w.-]+:)?infCFe\b[^>]*\bId\s*=\s*["']CFe(\d{44})["']/i)?.[1]
+  return fromXml || xmlFallback.match(/\b(\d{44})\b/)?.[1] || ''
 }
 
 function chaveDeInfNFe(inf: Record<string, unknown>, xmlFallback: string): string {
@@ -575,7 +629,7 @@ export function listarXmlsElegiveisNotas(pastaRaiz: string): {
     if (xmlElegivelRelatorioNotas(conteudo)) {
       elegiveis.push(rel)
     } else if (!ehArquivoResumoPorNome(nome)) {
-      ignorados.push({ relativo: rel, motivo: 'XML sem infNFe+itens (det)' })
+      ignorados.push({ relativo: rel, motivo: 'XML sem itens de produto (infNFe/infCFe + det)' })
     }
   }
 
@@ -585,6 +639,117 @@ export function listarXmlsElegiveisNotas(pastaRaiz: string): {
     totalElegiveis: elegiveis.length,
     ignorados,
   }
+}
+
+function extrairLinhasCfeSat(
+  parsed: unknown,
+  xmlStr: string,
+  detsEsperados: number
+): { linhas: RelatorioNotasLinha[]; cabecalho?: RelatorioNotasCabecalho; detsEsperados: number } {
+  const inf = localizarInfCFe(parsed)
+  if (!inf) return { linhas: [], detsEsperados }
+
+  const ide = (inf.ide ?? {}) as Record<string, unknown>
+  const emit = inf.emit
+  const dest = inf.dest
+
+  const chave = chaveDeInfCFe(inf, xmlStr)
+  const numero = strCampo(ide, 'nCFe')
+  const serie = strCampo(ide, 'nserieSAT')
+  const modelo = strCampo(ide, 'mod') || '59'
+  const emissao = formatarDhEmiRelatorio(strCampo(ide, 'dEmi'), strCampo(ide, 'hEmi'))
+
+  const emitenteDoc = extrairDocPessoaObj(emit)
+  const emitenteNome = strCampo(emit, 'xNome') || strCampo(emit, 'xFant')
+  const emitenteUf = strCampo((emit as Record<string, unknown> | undefined)?.enderEmit, 'UF') || 'SP'
+
+  const destDoc = extrairDocPessoaObj(dest)
+  const destNome = strCampo(dest, 'xNome')
+
+  const cabecalho: RelatorioNotasCabecalho | undefined =
+    emitenteDoc || emitenteNome
+      ? { nome: emitenteNome || undefined, cnpj: emitenteDoc.replace(/\D/g, '') || undefined }
+      : undefined
+
+  const dets = asArray(inf.det)
+  const linhas: RelatorioNotasLinha[] = []
+
+  for (let i = 0; i < dets.length; i++) {
+    const det = dets[i] as Record<string, unknown>
+    const prod = det.prod ?? {}
+    const imposto = det.imposto ?? {}
+    const nItem = texto(det['@_nItem']) || strCampo(det, 'nItem') || String(i + 1)
+    const icms = extrairIcms(imposto)
+    const pis = extrairPisCofins(imposto, 'PIS')
+    const cofins = extrairPisCofins(imposto, 'COFINS')
+    const ibs = extrairIbsCbs(imposto)
+
+    linhas.push({
+      chave,
+      numero,
+      serie,
+      modelo,
+      emissao,
+      emitenteDoc,
+      emitenteNome,
+      emitenteUf,
+      destDoc,
+      destNome,
+      destUf: strCampo((dest as Record<string, unknown> | undefined)?.enderDest, 'UF'),
+      transportadorDoc: '',
+      transportadorNome: '',
+      item: nItem.padStart(3, '0'),
+      codigoProduto: strCampo(prod, 'cProd'),
+      codigoBarras: codigoBarrasDoProd(prod),
+      descricao: strCampo(prod, 'xProd'),
+      ncm: strCampo(prod, 'NCM'),
+      cfop: strCampo(prod, 'CFOP'),
+      qtd: numCampo(prod, 'qCom'),
+      vUnit: numCampo(prod, 'vUnCom'),
+      vProd: numCampo(prod, 'vProd'),
+      vFrete: numCampo(prod, 'vFrete'),
+      vSeg: numCampo(prod, 'vSeg'),
+      vDesc: numCampo(prod, 'vDesc'),
+      icmsCst: icms.cst,
+      icmsVBc: icms.vBc,
+      icmsAliq: icms.pIcms,
+      icmsValor: icms.vIcms,
+      ipiValor: extrairIpiValor(imposto),
+      pisCst: pis.cst,
+      pisVBc: pis.vBc,
+      pisAliq: pis.aliq,
+      pisValor: pis.valor,
+      cofinsCst: cofins.cst,
+      cofinsVBc: cofins.vBc,
+      cofinsAliq: cofins.aliq,
+      cofinsValor: cofins.valor,
+      ibsCbsCst: ibs.cst,
+      ibsCbsClassTrib: ibs.classTrib,
+      ibsCbsVBc: ibs.vBc,
+      ibsAliqUf: ibs.aliqUf,
+      ibsUfPctRed: ibs.pctRedUf,
+      ibsUfAliqEfet: ibs.aliqEfetUf,
+      ibsValorUf: ibs.valorUf,
+      ibsAliqMun: ibs.aliqMun,
+      ibsMunPctRed: ibs.pctRedMun,
+      ibsMunAliqEfet: ibs.aliqEfetMun,
+      ibsValorMun: ibs.valorMun,
+      ibsValorTotal: ibs.valorTotal,
+      cbsAliq: ibs.cbsAliq,
+      cbsPctRed: ibs.cbsPctRed,
+      cbsAliqEfet: ibs.cbsAliqEfet,
+      cbsValor: ibs.cbsValor,
+      indPres: '',
+      pRedBc: icms.pRedBc,
+      pRedBcSt: icms.pRedBcSt,
+      pRedBcEfet: icms.pRedBcEfet,
+      tpNFDebito: '',
+      tpNFCredito: '',
+      finNFe: '',
+    })
+  }
+
+  return { linhas, cabecalho, detsEsperados }
 }
 
 export function extrairLinhasRelatorioNotas(xmlStr: string): {
@@ -602,6 +767,10 @@ export function extrairLinhasRelatorioNotas(xmlStr: string): {
     parsed = xmlParser.parse(xmlStr)
   } catch {
     return { linhas: [], detsEsperados }
+  }
+
+  if (xmlEhCfeSatCompleto(xmlStr)) {
+    return extrairLinhasCfeSat(parsed, xmlStr, detsEsperados)
   }
 
   const inf = localizarInfNFe(parsed)
@@ -887,7 +1056,7 @@ export async function gerarRelatorioNotasNaPasta(pastaRaiz: string): Promise<{
             motivo: 'resumo resNFe sem itens — baixe/sincronize o procNFe completo',
           })
         } else {
-          ignorados.push({ relativo: rel, motivo: 'sem infNFe + itens <det>' })
+          ignorados.push({ relativo: rel, motivo: 'sem itens de produto (infNFe/infCFe + det)' })
         }
         continue
       }

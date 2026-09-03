@@ -1,7 +1,7 @@
 'use client'
 
 import { IonIcon } from '@ionic/react'
-import { busOutline, documentTextOutline, funnelOutline, receiptOutline, statsChartOutline } from 'ionicons/icons'
+import { busOutline, documentTextOutline, funnelOutline, hardwareChipOutline, receiptOutline, statsChartOutline } from 'ionicons/icons'
 import type { AppModule } from '@/types/nfce-app'
 
 type ModulePickerScreenProps = {
@@ -16,7 +16,7 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
         <p className="text-sm text-[var(--text-secondary)] mb-5">
           Escolha o que precisa fazer agora. Depois você pode trocar em <strong>Trocar módulo</strong> na barra lateral.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <button
             type="button"
             onClick={() => onSelectModule('nfce')}
@@ -54,6 +54,19 @@ export function ModulePickerScreen({ onSelectModule }: ModulePickerScreenProps) 
             </div>
             <p className="text-xs text-[var(--text-secondary)]">
               Conhecimento de transporte: sincronizar fila e consultar por chave (SP).
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectModule('sat')}
+            className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-4 text-left no-drag transition-colors hover:border-[var(--teal-dim)] hover:bg-[var(--bg-surface)]"
+          >
+            <div className="flex items-center gap-2 mb-2 text-[var(--text-primary)]">
+              <IonIcon icon={hardwareChipOutline} className="w-5 h-5" />
+              <span className="font-semibold">SAT</span>
+            </div>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Cupons SAT históricos de SP — importar e relatar. Emissão nova é NFC-e.
             </p>
           </button>
           <button

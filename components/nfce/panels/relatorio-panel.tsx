@@ -166,7 +166,7 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
 
         <p className="text-sm text-[var(--text-secondary)] mb-4">
           Selecione a pasta com os XMLs. O comparativo NFC-e usa a pasta plana; o relatório Notas
-          percorre subpastas (ex.: DistDFe <span className="font-mono">CNPJ/ano/mês</span>).
+          percorre subpastas (ex.: DistDFe ou SAT <span className="font-mono">CNPJ/ano/mês</span>).
         </p>
 
         <div className="flex gap-3">
@@ -292,11 +292,8 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
           </h3>
           <p className="text-sm text-[var(--text-secondary)] mb-3">
             Estilo FSist ampliado (61 colunas): 1 linha por item, deduplicação por chave (prefere{' '}
-            <span className="font-mono">procNFe</span>), PIS/COFINS/IBS/CBS quando existirem. Gera o
-            XLSX e um <span className="font-mono">*-diagnostico.txt</span> listando arquivos
-            ignorados. Para <strong>notas de saída</strong> (emitidas pela empresa), copie os XML do
-            ERP/emissor para esta pasta — a DistDFe AN não entrega o <span className="font-mono">procNFe</span> da
-            própria emissão.
+            <span className="font-mono">procNFe</span> ou <span className="font-mono">cfeSat</span>
+            ). Aceita NF-e/NFC-e completos e cupons SAT importados no módulo SAT.
           </p>
 
           <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-3 mb-3">

@@ -225,6 +225,14 @@ contextBridge.exposeInMainWorld('electron', {
     },
   },
 
+  sat: {
+    listarXmlsSalvos: (
+      pastaRaiz: string,
+      cnpj14: string,
+      filtro?: { ano?: string; mes?: string }
+    ) => ipcRenderer.invoke('sat:listar-xmls-salvos', pastaRaiz, cnpj14, filtro),
+  },
+
   fs: {
     selecionarPasta:  ()                                => ipcRenderer.invoke('fs:selecionar-pasta'),
     salvarXml:        (c: string, n: string)            => ipcRenderer.invoke('fs:salvar-xml', c, n),
@@ -236,6 +244,11 @@ contextBridge.exposeInMainWorld('electron', {
       cnpj14: string
       tipo: 'nfe' | 'cte'
     }) => ipcRenderer.invoke('fs:importar-xmls-saida', opts),
+    importarXmlsSat: (opts: {
+      pastaOrigem: string
+      pastaDestino: string
+      cnpj14: string
+    }) => ipcRenderer.invoke('fs:importar-xmls-sat', opts),
   },
 
   relatorio: {
@@ -265,7 +278,7 @@ contextBridge.exposeInMainWorld('electron', {
   app: {
     setBusy: (busy: boolean) => ipcRenderer.send('app:set-busy', busy),
     getVersion: () => ipcRenderer.invoke('app:get-version') as Promise<string>,
-    setModulo: (modulo: 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao' | 'cte') =>
+    setModulo: (modulo: 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao' | 'cte' | 'sat') =>
       ipcRenderer.invoke('app:set-modulo', modulo) as Promise<boolean>,
     setNfeBlockTimer: (payload: {
       certId: string

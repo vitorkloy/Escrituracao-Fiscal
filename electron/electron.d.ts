@@ -145,6 +145,14 @@ interface NfeXmlSalvoInfo {
   mes: string
 }
 
+interface SatXmlSalvoInfo {
+  chave: string
+  caminho: string
+  ano: string
+  mes: string
+  tipo: 'cfeSat' | 'cancCFe' | 'outro'
+}
+
 interface CteDistDfeDocLinhaProgresso {
   nsu: string
   schema: string
@@ -227,7 +235,7 @@ interface NfeBlockTimer {
 }
 
 type ThemePreference = 'light' | 'dark' | 'system'
-type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao' | 'cte'
+type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao' | 'cte' | 'sat'
 
 declare global {
   interface Window {
@@ -448,6 +456,27 @@ declare global {
           amostra?: string[]
           xMotivo?: string
         }>
+        importarXmlsSat(opts: {
+          pastaOrigem: string
+          pastaDestino: string
+          cnpj14: string
+        }): Promise<{
+          ok: boolean
+          copiados: number
+          ignorados: number
+          pulados: number
+          falhas: number
+          pastaDestino?: string
+          amostra?: string[]
+          xMotivo?: string
+        }>
+      }
+      sat: {
+        listarXmlsSalvos(
+          pastaRaiz: string,
+          cnpj14: string,
+          filtro?: { ano?: string; mes?: string }
+        ): Promise<{ ok: boolean; arquivos?: SatXmlSalvoInfo[]; total?: number; xMotivo?: string }>
       }
       relatorio: {
         gerarComparativoXlsx(pastaSaida: string): Promise<{

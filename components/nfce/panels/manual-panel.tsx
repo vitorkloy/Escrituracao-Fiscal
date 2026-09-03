@@ -35,8 +35,8 @@ const MANUAL_VISAO_GERAL: ManualSectionData = {
     </>,
     <>
       Módulos: <strong>NFC-e</strong> (cupons SP), <strong>NF-e</strong> (notas 55), <strong>CT-e</strong> (frete),{' '}
-      <strong>Relatório</strong> (Excel a partir da pasta) e <strong>XML Retenção</strong>. Detalhes na aba{' '}
-      <strong>Módulos</strong>.
+      <strong>SAT</strong> (cupons históricos CF-e-SAT), <strong>Relatório</strong> (Excel a partir da pasta) e{' '}
+      <strong>XML Retenção</strong>. Detalhes na aba <strong>Módulos</strong>.
     </>,
   ],
 }
@@ -210,22 +210,43 @@ const MANUAL_SECOES_MODULOS: ManualSectionData[] = [
     ],
   },
   {
+    titulo: 'Módulo SAT (CF-e-SAT histórico — SP)',
+    itens: [
+      <>
+        <strong>O que faz:</strong> organiza cupons <strong>já emitidos</strong> pelo equipamento SAT (modelo 59).{' '}
+        <strong>Não emite</strong> cupom e não fala com o hardware. Desde 01/01/2026 a emissão SAT em SP é inválida (erro 1001);
+        venda nova usa o módulo <strong>NFC-e</strong>.
+      </>,
+      <>
+        <strong>Abas:</strong> <strong>Certificado</strong>, <strong>Importar cupons</strong>, <strong>Arquivos na pasta</strong>.
+      </>,
+      <>
+        <strong>Fluxo:</strong> (1) importe a pasta/ZIP do PDV ou backup do SAT; (2) confira em Arquivos na pasta; (3) no
+        módulo <strong>Relatório</strong> → Relatório Notas, aponte a mesma pasta do eFis. Os arquivos ficam em{' '}
+        <code className="text-[11px]">CNPJ/ano/mês/{'{chave}'}_cfeSat.xml</code>.
+      </>,
+      <>
+        <strong>Glossário:</strong> <em>cupom SAT</em> = XML completo com itens; <em>cancelamento</em> = anula o cupom (
+        <code className="text-[11px]">_cancCFe.xml</code>); isso não é NFC-e.
+      </>,
+    ],
+  },
+  {
     titulo: 'Módulo Relatório',
     itens: [
       <>
         Disponível como módulo próprio na tela inicial. Serve para gerar ficheiros <strong>XLSX</strong> comparativos a partir de uma{' '}
         <strong>pasta</strong> que já contenha XMLs de NFC-e baixados pelo eFis (aprovadas e canceladas), e o{' '}
-        <strong>Relatório Notas</strong> (itens) a partir de NF-e/NFC-e com <code className="text-[11px]">procNFe</code>.
+        <strong>Relatório Notas</strong> (itens) a partir de NF-e/NFC-e com <code className="text-[11px]">procNFe</code> e
+        cupons SAT (<code className="text-[11px]">*_cfeSat.xml</code>).
       </>,
       <>
         Escolha a pasta, confira a pré-visualização e os totais, depois <strong>Gerar XLSX</strong>. Os nomes dos ficheiros gerados
         costumam incluir <strong>razão social</strong> e <strong>CNPJ</strong> quando esses dados são obtidos dos XMLs.
       </>,
       <>
-        <strong>Importar XMLs de saída:</strong> nos módulos NF-e e CT-e use a aba <strong>Importar saída</strong> (pasta do
-        ERP → pasta eFis) ou copie manualmente para <code className="text-[11px]">CNPJ/ano/mês</code>; depois{' '}
-        <strong>Relatório Notas</strong> — varredura recursiva de <code className="text-[11px]">nfeProc</code> /{' '}
-        <code className="text-[11px]">*_procNFe.xml</code>.
+        <strong>Importar XMLs de saída:</strong> nos módulos NF-e e CT-e use a aba <strong>Importar saída</strong>; no SAT,
+        use <strong>Importar cupons</strong>. Depois <strong>Relatório Notas</strong> na mesma pasta.
       </>,
     ],
   },

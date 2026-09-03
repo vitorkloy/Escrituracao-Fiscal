@@ -109,11 +109,13 @@ function SidebarFooter({
               ? 'SAE-Relatório'
               : appModule === 'xml-retencao'
                 ? 'SAE-XML Retenção'
-                : 'SAE-NFC-e'}{' '}
+                : appModule === 'sat'
+                  ? 'SAE-SAT'
+                  : 'SAE-NFC-e'}{' '}
         v2.0.0
       </p>
       <p className="text-xs text-[var(--text-muted)]">
-        {appModule === 'cte' ? 'SEFAZ-SP + AN · CT-e WS v4.00' : 'SEFAZ-SP · NT 2026'}
+        {appModule === 'cte' ? 'SEFAZ-SP + AN · CT-e WS v4.00' : appModule === 'sat' ? 'CF-e-SAT histórico · SP' : 'SEFAZ-SP · NT 2026'}
       </p>
     </div>
   )
@@ -149,7 +151,9 @@ export function AppSidebar({
                     ? 'Relatório'
                     : appModule === 'xml-retencao'
                       ? 'XML Retenção'
-                      : 'NFC-e'}
+                      : appModule === 'sat'
+                        ? 'SAT'
+                        : 'NFC-e'}
             </span>
           </span>
         </div>

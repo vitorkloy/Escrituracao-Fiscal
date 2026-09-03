@@ -11,6 +11,8 @@ import { CteConsultaPanel } from '@/components/nfce/panels/cte-consulta-panel'
 import { CteDistribuicaoDfePanel } from '@/components/nfce/panels/cte-distribuicao-dfe-panel'
 import { RelatorioPanel } from '@/components/nfce/panels/relatorio-panel'
 import { XmlRetencaoPanel } from '@/components/nfce/panels/xml-retencao-panel'
+import { SatImportarPanel } from '@/components/nfce/panels/sat-importar-panel'
+import { SatArquivosPanel } from '@/components/nfce/panels/sat-arquivos-panel'
 import type {
   AppModule,
   AppTab,
@@ -136,6 +138,16 @@ export function MainPanelArea({
               showToast={showToast}
               onLoadingStateChange={onLoadingStateChange}
             />
+          </div>
+        )}
+        {activeTab === 'sat-importar' && appModule === 'sat' && (
+          <div className="h-full flex flex-col overflow-hidden">
+            <SatImportarPanel certificateState={certificateState} showToast={showToast} />
+          </div>
+        )}
+        {activeTab === 'sat-arquivos' && appModule === 'sat' && (
+          <div className="h-full flex flex-col overflow-hidden">
+            <SatArquivosPanel certificateState={certificateState} showToast={showToast} />
           </div>
         )}
       </div>

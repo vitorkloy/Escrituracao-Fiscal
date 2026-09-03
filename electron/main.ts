@@ -45,6 +45,8 @@ import type { CteDistDfeSyncProgresso } from './cte-dist-dfe-sync'
 import { listarXmlsCteSalvos, type CteXmlSalvoInfo } from './cte-list-xmls-local'
 import { listarXmlsNfeSalvos, type NfeXmlSalvoInfo } from './nfe-list-xmls-local'
 import { importarXmlsSaida } from './importar-xmls-saida'
+import { importarXmlsSat } from './importar-xmls-sat'
+import { listarXmlsSatSalvos, type SatXmlSalvoInfo } from './sat-list-xmls-local'
 import {
   buscarProcCteFaltantes,
   listarChavesCteSemProc,
@@ -72,7 +74,7 @@ const execFileAsync = promisify(execFile)
 // ---------------------------------------------------------------------------
 
 type ThemePreference = 'light' | 'dark' | 'system'
-type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao' | 'cte'
+type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao' | 'cte' | 'sat'
 
 interface CertStorePayload {
   pfxPath: string
@@ -410,7 +412,8 @@ ipcMain.handle(
     modulo === 'nfe' ||
     modulo === 'relatorio' ||
     modulo === 'xml-retencao' ||
-    modulo === 'cte'
+    modulo === 'cte' ||
+    modulo === 'sat'
 )
 ipcMain.on('app:set-busy', (_e, busy: boolean) => {
   appEstaOcupada = Boolean(busy)
@@ -1967,6 +1970,50 @@ ipcMain.handle(
         falhas: 0,
         xMotivo: mensagemErro(err),
       }
+    }
+  }
+)
+
+ipcMain.handle(
+  'fs:importar-xmls-sat',
+  (_e, opts: { pastaOrigem: string; pastaDestino: string; cnpj14: string }) => {
+    try {
+      return importarXmlsSat({
+        pastaOrigem: String(opts?.pastaOrigem ?? ''),
+        pastaDestino: String(opts?.pastaDestino ?? ''),
+        cnpj14: String(opts?.cnpj14 ?? ''),
+      })
+    } catch (err: unknown) {
+      return {
+        ok: false,
+        copiados: 0,
+        ignorados: 0,
+        pulados: 0,
+        falhas: 0,
+        xMotivo: mensagemErro(err),
+      }
+    }
+  }
+)
+
+ipcMain.handle(
+  'sat:listar-xmls-salvos',
+  (
+    _e,
+    pastaRaiz: string,
+    cnpj14: string,
+    filtro?: { ano?: string; mes?: string }
+  ) => {
+    try {
+      const pr = String(pastaRaiz ?? '').trim()
+      const cj = String(cnpj14 ?? '').replace(/\D/g, '')
+      if (!pr || cj.length !== 14) {
+        return { ok: false, arquivos: [] as SatXmlSalvoInfo[], xMotivo: 'Pasta ou CNPJ inválido.' }
+      }
+      const arquivos = listarXmlsSatSalvos(pr, cj, filtro)
+      return { ok: true, arquivos, total: arquivos.length }
+    } catch (err: unknown) {
+      return { ok: false, arquivos: [], xMotivo: mensagemErro(err) }
     }
   }
 )

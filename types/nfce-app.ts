@@ -16,6 +16,8 @@ export type AppTab =
   | 'cte-consulta'
   | 'cte-dist-dfe'
   | 'cte-importar-saida'
+  | 'sat-importar'
+  | 'sat-arquivos'
 
 /** Item da barra lateral (ícone Ionicons como data URI / nome). */
 export interface NavTabConfig {
@@ -25,7 +27,7 @@ export interface NavTabConfig {
 }
 
 export type SefazEnvironment = 'producao'
-export type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao' | 'cte'
+export type AppModule = 'nfce' | 'nfe' | 'relatorio' | 'xml-retencao' | 'cte' | 'sat'
 
 export type CertificateSourceMode = 'store' | 'arquivo'
 
