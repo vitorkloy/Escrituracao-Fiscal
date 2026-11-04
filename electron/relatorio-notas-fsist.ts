@@ -4,7 +4,7 @@ import ExcelJS from 'exceljs'
 import { XMLParser } from 'fast-xml-parser'
 import { xmlEhCfeCanc, xmlEhCfeSatCompleto } from './sat-cfe-parser'
 
-/** Uma linha do relatório Notas — 1 item por linha (layout FSist 61 colunas). */
+/** Uma linha do relatório Notas — 1 item por linha (layout FSist 61 colunas + CRT). */
 export interface RelatorioNotasLinha {
   chave: string
   numero: string
@@ -67,6 +67,7 @@ export interface RelatorioNotasLinha {
   tpNFDebito: string
   tpNFCredito: string
   finNFe: string
+  crt: string
 }
 
 export interface RelatorioNotasCabecalho {
@@ -147,6 +148,7 @@ export const HEADERS_NOTAS = [
   'tpNFDebito',
   'tpNFCredito',
   'finNFe',
+  'CRT',
 ] as const
 
 const xmlParser = new XMLParser({
@@ -746,6 +748,7 @@ function extrairLinhasCfeSat(
       tpNFDebito: '',
       tpNFCredito: '',
       finNFe: '',
+      crt: strCampo(emit, 'CRT'),
     })
   }
 
@@ -885,6 +888,7 @@ export function extrairLinhasRelatorioNotas(xmlStr: string): {
       tpNFDebito,
       tpNFCredito,
       finNFe,
+      crt: strCampo(emit, 'CRT'),
     })
   }
 
@@ -954,6 +958,7 @@ function linhaParaArray(l: RelatorioNotasLinha): (string | number | null)[] {
     l.tpNFDebito,
     l.tpNFCredito,
     l.finNFe,
+    l.crt,
   ]
 }
 
