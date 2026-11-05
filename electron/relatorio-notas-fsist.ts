@@ -31,6 +31,7 @@ export interface RelatorioNotasLinha {
   vFrete: number | null
   vSeg: number | null
   vDesc: number | null
+  vOutro: number | null
   icmsCst: string
   icmsVBc: number | null
   icmsAliq: number | null
@@ -112,6 +113,7 @@ export const HEADERS_NOTAS = [
   'Valor Frete',
   'Valor Seguro',
   'Valor Desconto',
+  'Valor Outras Despesas',
   'ICMS CST',
   'ICMS Valor da BC',
   'ICMS Alíquota',
@@ -712,6 +714,7 @@ function extrairLinhasCfeSat(
       vFrete: numCampo(prod, 'vFrete'),
       vSeg: numCampo(prod, 'vSeg'),
       vDesc: numCampo(prod, 'vDesc'),
+      vOutro: numCampo(prod, 'vOutro'),
       icmsCst: icms.cst,
       icmsVBc: icms.vBc,
       icmsAliq: icms.pIcms,
@@ -852,6 +855,7 @@ export function extrairLinhasRelatorioNotas(xmlStr: string): {
       vFrete: numCampo(prod, 'vFrete'),
       vSeg: numCampo(prod, 'vSeg'),
       vDesc: numCampo(prod, 'vDesc'),
+      vOutro: numCampo(prod, 'vOutro'),
       icmsCst: icms.cst,
       icmsVBc: icms.vBc,
       icmsAliq: icms.pIcms,
@@ -922,6 +926,7 @@ function linhaParaArray(l: RelatorioNotasLinha): (string | number | null)[] {
     l.vFrete,
     l.vSeg,
     l.vDesc,
+    l.vOutro,
     l.icmsCst,
     l.icmsVBc,
     l.icmsAliq,
@@ -980,8 +985,7 @@ export async function gerarRelatorioNotasXlsxBuffer(
 
   // Colunas numéricas (1-based): Qtd=20, valores monetários/alíquotas
   const numFmtCols = new Set([
-    20, 21, 22, 23, 24, 25, 27, 28, 29, 30, 32, 33, 34, 36, 37, 38, 41, 42, 43, 44, 45, 46, 47, 48,
-    49, 50, 51, 52, 53, 54, 56, 57, 58,
+    20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 31, 33, 34, 35, 37, 38, 39, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 57, 58, 59,
   ])
 
   for (const l of linhas) {
