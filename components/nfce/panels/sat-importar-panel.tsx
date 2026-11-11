@@ -66,6 +66,10 @@ export function SatImportarPanel({ certificateState, showToast }: SatImportarPan
         pastaDestino: pastaDestino.trim(),
         cnpj14: cj,
       })
+      const avisoPos2025 =
+        (r.posteriores2025 ?? 0) > 0
+          ? `${r.posteriores2025} XML(s) com data a partir de 2026 ignorados (SAT inválido — erro 1001; use NFC-e).`
+          : ''
       if (!r.ok) {
         showToast('erro', r.xMotivo ?? 'Importação sem arquivos válidos.')
         setUltimoResumo(
@@ -75,7 +79,9 @@ export function SatImportarPanel({ certificateState, showToast }: SatImportarPan
         )
         return
       }
-      const msg = `Importados ${r.copiados} XML(s) SAT; ${r.ignorados} já existiam; ${r.pulados} pulados (outro CNPJ / não é cupom SAT).`
+      const msg =
+        `Importados ${r.copiados} XML(s) SAT; ${r.ignorados} já existiam; ${r.pulados} pulados (outro CNPJ / não é cupom SAT).` +
+        (avisoPos2025 ? ` ${avisoPos2025}` : '')
       showToast('ok', msg)
       setUltimoResumo(msg + (r.pastaDestino ? ` Destino: ${r.pastaDestino}` : ''))
       setAmostra(r.amostra ?? [])
@@ -166,7 +172,7 @@ export function SatImportarPanel({ certificateState, showToast }: SatImportarPan
           </div>
           <p className="text-[10px] text-[var(--text-muted)]">
             Ex.: <code className="text-[10px]">C:\XMLs\Empresa</code> — o app organiza em{' '}
-            <code className="text-[10px]">CNPJ\ano\mês</code>.
+            <code className="text-[10px]">CNPJ\ano\mês</code>. Pode escolher a pasta pai ou a própria pasta do CNPJ.
           </p>
         </div>
 

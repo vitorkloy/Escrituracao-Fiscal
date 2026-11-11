@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- XML SINTÉTICO para testes. Não corresponde a nenhum cancelamento real. -->
+<CFeCanc>
+  <infCFe Id="CFe35251211222333000181590001234560001025829117" chCanc="CFe35251211222333000181590001234560001014829103" versao="0.08">
+    <dEmi>20251215</dEmi>
+    <hEmi>144500</hEmi>
+    <ide>
+      <cUF>35</cUF>
+      <cNF>582911</cNF>
+      <mod>59</mod>
+      <nserieSAT>000123456</nserieSAT>
+      <nCFe>000102</nCFe>
+      <dEmi>20251215</dEmi>
+      <hEmi>144500</hEmi>
+      <cDV>7</cDV>
+      <CNPJ>00000000000000</CNPJ>
+      <signAC>SINTETICO</signAC>
+      <assinaturaQRCODE>SINTETICO</assinaturaQRCODE>
+      <numeroCaixa>001</numeroCaixa>
+    </ide>
+    <emit>
+      <CNPJ>11222333000181</CNPJ>
+      <xNome>EMPRESA FICTICIA LTDA</xNome>
+      <IE>000000000000</IE>
+    </emit>
+    <dest/>
+    <total><vCFe>13.50</vCFe></total>
+  </infCFe>
+</CFeCanc>
