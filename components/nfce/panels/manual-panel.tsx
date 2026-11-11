@@ -223,7 +223,19 @@ const MANUAL_SECOES_MODULOS: ManualSectionData[] = [
       <>
         <strong>Fluxo:</strong> (1) importe a pasta/ZIP do PDV ou backup do SAT; (2) confira em Arquivos na pasta; (3) no
         módulo <strong>Relatório</strong> → Relatório Notas, aponte a mesma pasta do eFis. Os arquivos ficam em{' '}
-        <code className="text-[11px]">CNPJ/ano/mês/{'{chave}'}_cfeSat.xml</code>.
+        <code className="text-[11px]">CNPJ/ano/mês/{'{chave}'}_cfeSat.xml</code> (cancelamento:{' '}
+        <code className="text-[11px]">{'{chave do cupom}'}_cancCFe.xml</code>, na mesma pasta). Como destino, vale a pasta pai ou a
+        própria pasta do CNPJ. Arquivo que já existe não é sobrescrito.
+      </>,
+      <>
+        <strong>Os 4 fluxos:</strong> (1) <strong>Importar cupons</strong> — principal, a partir do backup do cliente; (2){' '}
+        <strong>Arquivos na pasta</strong> — conferência de chave, data e tipo; (3) <strong>Consultar COMSAT</strong> (Portal SAT
+        da Fazenda) — ainda não disponível, fica para uma fase futura; enquanto isso, peça ao cliente o backup do SAT/PDV; (4){' '}
+        <strong>Relatório</strong> — Excel no Relatório Notas.
+      </>,
+      <>
+        <strong>Aviso de descontinuação:</strong> XMLs SAT com data a partir de 01/01/2026 <strong>não são importados</strong>{' '}
+        (documento inválido, erro 1001). Se o cliente emitiu SAT depois disso, oriente NFC-e e regularização na SEFAZ.
       </>,
       <>
         <strong>Glossário:</strong> <em>cupom SAT</em> = XML completo com itens; <em>cancelamento</em> = anula o cupom (

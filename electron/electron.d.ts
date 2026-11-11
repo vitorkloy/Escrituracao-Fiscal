@@ -466,6 +466,7 @@ declare global {
           ignorados: number
           pulados: number
           falhas: number
+          posteriores2025?: number
           pastaDestino?: string
           amostra?: string[]
           xMotivo?: string

@@ -16,6 +16,8 @@
     "release:win": "node scripts/sync-brand-icons.cjs && next build && tsc -p tsconfig.electron.json && electron-builder --win --x64 --publish always",
     "build:next": "next build",
     "build:electron": "tsc -p tsconfig.electron.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.electron.json",
+    "test": "tsc -p tsconfig.electron.json && node --test tests/sat.test.cjs",
     "dist": "npm run build",
     "wsdl": "node scripts/buscar-wsdl.js",
     "diagnostico:listagem": "node scripts/diagnostico-listagem.cjs"

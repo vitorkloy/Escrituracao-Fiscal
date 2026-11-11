@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- XML SINTÉTICO para testes. Não corresponde a nenhum cupom real. -->
+<CFe>
+  <infCFe Id="CFe35251211222333000181590001234560001014829103" versao="0.08" versaoDadosEnt="0.08" versaoSB="010000">
+    <ide>
+      <cUF>35</cUF>
+      <cNF>482910</cNF>
+      <mod>59</mod>
+      <nserieSAT>000123456</nserieSAT>
+      <nCFe>000101</nCFe>
+      <dEmi>20251215</dEmi>
+      <hEmi>143000</hEmi>
+      <cDV>3</cDV>
+      <tpAmb>1</tpAmb>
+      <CNPJ>00000000000000</CNPJ>
+      <signAC>SINTETICO</signAC>
+      <assinaturaQRCODE>SINTETICO</assinaturaQRCODE>
+      <numeroCaixa>001</numeroCaixa>
+    </ide>
+    <emit>
+      <CNPJ>11222333000181</CNPJ>
+      <xNome>EMPRESA FICTICIA LTDA</xNome>
+      <xFant>LOJA TESTE</xFant>
+      <enderEmit>
+        <xLgr>RUA FICTICIA</xLgr>
+        <nro>100</nro>
+        <xBairro>CENTRO</xBairro>
+        <xMun>SAO PAULO</xMun>
+        <CEP>01000000</CEP>
+      </enderEmit>
+      <IE>000000000000</IE>
+      <cRegTrib>3</cRegTrib>
+      <indRatISSQN>N</indRatISSQN>
+    </emit>
+    <dest/>
+    <det nItem="1">
+      <prod>
+        <cProd>0001</cProd>
+        <cEAN>SEM GTIN</cEAN>
+        <xProd>PRODUTO TESTE A</xProd>
+        <NCM>21069090</NCM>
+        <CFOP>5102</CFOP>
+        <uCom>UN</uCom>
+        <qCom>2.0000</qCom>
+        <vUnCom>5.00</vUnCom>
+        <vProd>10.00</vProd>
+        <indRegra>A</indRegra>
+        <vItem>10.00</vItem>
+      </prod>
+      <imposto>
+        <ICMS><ICMS00><Orig>0</Orig><CST>00</CST><pICMS>18.00</pICMS><vICMS>1.80</vICMS></ICMS00></ICMS>
+        <PIS><PISAliq><CST>01</CST><vBC>10.00</vBC><pPIS>0.0165</pPIS><vPIS>0.17</vPIS></PISAliq></PIS>
+        <COFINS><COFINSAliq><CST>01</CST><vBC>10.00</vBC><pCOFINS>0.0760</pCOFINS><vCOFINS>0.76</vCOFINS></COFINSAliq></COFINS>
+      </imposto>
+    </det>
+    <det nItem="2">
+      <prod>
+        <cProd>0002</cProd>
+        <cEAN>SEM GTIN</cEAN>
+        <xProd>PRODUTO TESTE B</xProd>
+        <NCM>22021000</NCM>
+        <CFOP>5405</CFOP>
+        <uCom>UN</uCom>
+        <qCom>1.0000</qCom>
+        <vUnCom>3.50</vUnCom>
+        <vProd>3.50</vProd>
+        <indRegra>A</indRegra>
+        <vItem>3.50</vItem>
+      </prod>
+      <imposto>
+        <ICMS><ICMS40><Orig>0</Orig><CST>60</CST></ICMS40></ICMS>
+      </imposto>
+    </det>
+    <total><ICMSTot><vICMS>1.80</vICMS><vProd>13.50</vProd></ICMSTot><vCFe>13.50</vCFe></total>
+    <pgto><MP><cMP>01</cMP><vMP>13.50</vMP></MP><vTroco>0.00</vTroco></pgto>
+  </infCFe>
+</CFe>

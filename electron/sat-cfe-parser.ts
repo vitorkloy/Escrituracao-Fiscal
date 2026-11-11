@@ -14,7 +14,18 @@ export function xmlEhCfeSatCompleto(xml: string): boolean {
   return /<(?:[\w.-]+:)?det\b/i.test(xml) && /<(?:[\w.-]+:)?prod\b/i.test(xml)
 }
 
+/**
+ * Chave usada no nome do arquivo.
+ * No cancelamento (`infCFeCanc`), usa a chave do cupom cancelado (`chCanc`), para que
+ * `{chave}_cancCFe.xml` fique ao lado de `{chave}_cfeSat.xml`.
+ */
 export function extrairChaveCfe(xml: string): string | undefined {
+  if (xmlEhCfeCanc(xml) && !xmlEhCfeSatCompleto(xml)) {
+    const chCancAttr = xml.match(/chCanc\s*=\s*["'](?:CFe)?(\d{44})["']/i)
+    if (chCancAttr?.[1]) return chCancAttr[1]
+    const chCancTag = xml.match(/<(?:[\w.-]+:)?chCanc>(?:CFe)?(\d{44})<\/(?:[\w.-]+:)?chCanc>/i)
+    if (chCancTag?.[1]) return chCancTag[1]
+  }
   const id = xml.match(/Id\s*=\s*["']CFe(\d{44})["']/i)
   if (id?.[1]) return id[1]
   const ch = xml.match(/<(?:[\w.-]+:)?chCanc>(\d{44})<\/(?:[\w.-]+:)?chCanc>/i)
@@ -50,4 +61,13 @@ export function extrairAnoMesCfe(xml: string): { ano: string; mes: string } | nu
     return { ano: `20${chave.slice(2, 4)}`, mes: chave.slice(4, 6) }
   }
   return null
+}
+
+/** Primeiro ano em que CF-e-SAT emitido em SP é rejeitado (erro 1001 — Portaria SRE 79/2024). */
+export const ANO_FIM_SAT_SP = 2026
+
+/** Cupom com data a partir de 01/01/2026: não é documento válido (erro 1001); orientar NFC-e. */
+export function cfeSatPosterior2025(ano: string | undefined): boolean {
+  const n = Number(ano)
+  return Number.isFinite(n) && n >= ANO_FIM_SAT_SP
 }

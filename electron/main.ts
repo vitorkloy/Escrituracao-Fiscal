@@ -1990,6 +1990,7 @@ ipcMain.handle(
         ignorados: 0,
         pulados: 0,
         falhas: 0,
+        posteriores2025: 0,
         xMotivo: mensagemErro(err),
       }
     }
