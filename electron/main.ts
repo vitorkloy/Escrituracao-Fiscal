@@ -65,6 +65,15 @@ import {
   gerarRelatorioNotasNaPasta,
   listarXmlsElegiveisNotas,
 } from './relatorio-notas-fsist'
+import {
+  formatarCnpjRelatorioDigitos,
+  gerarComparativoXlsxBuffer,
+  limparNomeArquivo,
+  montarNomesArquivosRelatorio,
+  parseValorMonetarioRelatorio,
+  type CabecalhoEmpresaRelatorio,
+} from './relatorio-xlsx'
+import { previewRelatorioEfd, gerarRelatoriosEfd } from './relatorio-efd'
 
 const execAsync = promisify(exec)
 const execFileAsync = promisify(execFile)
@@ -150,56 +159,6 @@ let abortListagemSefaz: AbortController | null = null
 
 type RelatorioModo = 'agora' | 'depois' | 'nenhum'
 
-/** Dados do emitente no topo do relatório. */
-interface CabecalhoEmpresaRelatorio {
-  nome?: string
-  cnpj?: string
-}
-
-function formatarCnpjRelatorioDigitos(raw: string | undefined): string {
-  if (!raw) return '—'
-  const d = raw.replace(/\D/g, '')
-  if (d.length !== 14) {
-    const t = raw.trim()
-    return t || '—'
-  }
-  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12, 14)}`
-}
-
-function parseValorMonetarioRelatorio(raw: string | undefined): number | null {
-  if (!raw) return null
-  const limpo = raw.trim()
-  if (!limpo) return null
-  // XML NFC-e/NFe (vNF): ponto como separador decimal, sem separador de milhar — ex.: "63.33".
-  // Se houver vírgula, interpreta como formato BR visual — ex.: "1.234,56".
-  let normalizado: string
-  if (limpo.includes(',')) {
-    normalizado = limpo.replace(/\./g, '').replace(',', '.')
-  } else {
-    normalizado = limpo.replace(/\s/g, '')
-  }
-  const n = Number(normalizado)
-  return Number.isFinite(n) ? n : null
-}
-
-function limparNomeArquivo(base: string): string {
-  const semInvalidos = base.replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim()
-  return semInvalidos.replace(/[. ]+$/g, '') || 'empresa-sem-nome'
-}
-
-function montarNomesArquivosRelatorio(cabecalhoEmpresa?: CabecalhoEmpresaRelatorio): {
-  aprovado: string
-  cancelado: string
-} {
-  const nome = (cabecalhoEmpresa?.nome ?? '').trim() || 'empresa-sem-nome'
-  const cnpj = (cabecalhoEmpresa?.cnpj ?? '').replace(/\D/g, '') || 'sem-cnpj'
-  const base = limparNomeArquivo(`${nome} - ${cnpj}`)
-  return {
-    aprovado: `${base} - comparativo_aprovado.xlsx`,
-    cancelado: `${base} - comparativo_cancelamento.xlsx`,
-  }
-}
-
 /** Razão social e CNPJ do emitente no XML da NFC-e. */
 function extrairEmitenteDoNfceXml(xmlStr: string): CabecalhoEmpresaRelatorio {
   const m = xmlStr.match(/<emit>([\s\S]*?)<\/emit>/)
@@ -208,81 +167,6 @@ function extrairEmitenteDoNfceXml(xmlStr: string): CabecalhoEmpresaRelatorio {
   const cnpj = bloco.match(/<CNPJ>([^<]+)<\/CNPJ>/)?.[1]?.trim()
   const xNome = bloco.match(/<xNome>([^<]+)<\/xNome>/)?.[1]?.trim()
   return { nome: xNome, cnpj }
-}
-
-async function gerarComparativoXlsxBuffer(
-  linhas: Array<{ chave: string; dhEmi?: string; serie?: string; nNF?: string; vNF?: string }>,
-  cabecalhoEmpresa?: CabecalhoEmpresaRelatorio
-): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook()
-  const ws = wb.addWorksheet('Comparativo NFC-e', {
-    views: [{ state: 'frozen', ySplit: 2 }],
-  })
-
-  const nomeEmpresa = (cabecalhoEmpresa?.nome ?? '').trim() || '—'
-  const cnpjFmt = formatarCnpjRelatorioDigitos(cabecalhoEmpresa?.cnpj)
-  ws.mergeCells('A1:E1')
-  ws.getCell('A1').value = `EMPRESA : ${nomeEmpresa}    |    CNPJ ${cnpjFmt}`
-  ws.getCell('A1').font = { bold: true, color: { argb: 'FFB91C1C' }, size: 12 }
-
-  const headerRow = ws.addRow([
-    'Série',
-    'Número do documento',
-    'Data de emissão',
-    'Valor do cupom',
-    'Chave de acesso',
-  ])
-  headerRow.font = { bold: true, color: { argb: 'FF111827' } }
-  headerRow.fill = {
-    type: 'pattern',
-    pattern: 'solid',
-    fgColor: { argb: 'FFE5E7EB' },
-  }
-  headerRow.border = {
-    top: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-    left: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-    bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-    right: { style: 'thin', color: { argb: 'FFD1D5DB' } },
-  }
-
-  let somaValores = 0
-  for (const l of linhas) {
-    const vNfNumero = parseValorMonetarioRelatorio(l.vNF)
-    if (vNfNumero != null) somaValores += vNfNumero
-    const row = ws.addRow([
-      l.serie ?? '',
-      l.nNF ?? '',
-      l.dhEmi ?? '',
-      vNfNumero ?? l.vNF ?? '',
-      l.chave ?? '',
-    ])
-    row.getCell(1).numFmt = '@'
-    row.getCell(2).numFmt = '@'
-    row.getCell(4).numFmt = '#,##0.00'
-    row.getCell(5).numFmt = '@'
-  }
-
-  if (linhas.length > 0) {
-    const totalRow = ws.addRow(['', '', 'Total geral', somaValores, ''])
-    totalRow.getCell(3).font = { bold: true }
-    totalRow.getCell(4).numFmt = '#,##0.00'
-    totalRow.getCell(4).font = { bold: true }
-  }
-
-  ws.columns = [
-    { width: 12 },
-    { width: 24 },
-    { width: 28 },
-    { width: 18 },
-    { width: 50 },
-  ]
-  ws.autoFilter = {
-    from: 'A2',
-    to: 'E2',
-  }
-
-  const buffer = await wb.xlsx.writeBuffer()
-  return Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer)
 }
 
 function isEventoCancelamento(xmlStr: string): boolean {
@@ -2648,4 +2532,30 @@ ipcMain.handle('relatorio:listar-xmls-notas', async (_e, pastaSaida: string) => 
 
 ipcMain.handle('relatorio:notas-xlsx', async (_e, pastaSaida: string) => {
   return gerarRelatorioNotasNaPasta(pastaSaida)
+})
+
+ipcMain.handle('relatorio:selecionar-efd', async () => {
+  try {
+    const win = getWindow()
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Selecionar arquivo EFD ICMS/IPI (SPED Fiscal)',
+      filters: [
+        { name: 'EFD ICMS/IPI', extensions: ['txt'] },
+        { name: 'Todos os arquivos', extensions: ['*'] },
+      ],
+      properties: ['openFile'],
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
+  } catch {
+    return null
+  }
+})
+
+ipcMain.handle('relatorio:preview-efd', async (_e, caminhoEfd: string) => {
+  return previewRelatorioEfd(caminhoEfd)
+})
+
+ipcMain.handle('relatorio:gerar-xlsx-efd', async (_e, caminhoEfd: string) => {
+  return gerarRelatoriosEfd(caminhoEfd)
 })

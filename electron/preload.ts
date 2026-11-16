@@ -260,6 +260,9 @@ contextBridge.exposeInMainWorld('electron', {
       ipcRenderer.invoke('relatorio:listar-xmls-notas', pastaSaida),
     gerarNotasXlsx: (pastaSaida: string) =>
       ipcRenderer.invoke('relatorio:notas-xlsx', pastaSaida),
+    selecionarEfd: () => ipcRenderer.invoke('relatorio:selecionar-efd') as Promise<string | null>,
+    previewEfd: (caminhoEfd: string) => ipcRenderer.invoke('relatorio:preview-efd', caminhoEfd),
+    gerarXlsxEfd: (caminhoEfd: string) => ipcRenderer.invoke('relatorio:gerar-xlsx-efd', caminhoEfd),
   },
 
   xmlRetencao: {
