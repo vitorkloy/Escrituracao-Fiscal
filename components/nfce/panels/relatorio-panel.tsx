@@ -238,7 +238,7 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
         </h2>
 
         <p className="text-sm text-[var(--text-secondary)] mb-4">
-          Selecione a pasta com os XMLs. O comparativo NFC-e usa a pasta plana; o relatório Notas
+          Gere os relatórios a partir dos XMLs (selecione a pasta abaixo) ou de um arquivo EFD ICMS/IPI (seção no fim da página). Com XMLs, o comparativo NFC-e usa a pasta plana; o relatório Notas
           percorre subpastas (ex.: DistDFe ou SAT <span className="font-mono">CNPJ/ano/mês</span>).
         </p>
 
