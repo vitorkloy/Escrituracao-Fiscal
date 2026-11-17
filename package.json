@@ -17,7 +17,7 @@
     "build:next": "next build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.electron.json",
-    "test": "tsc -p tsconfig.electron.json && node --test tests/sat.test.cjs",
+    "test": "tsc -p tsconfig.electron.json && node --test tests/sat.test.cjs tests/efd.test.cjs",
     "dist": "npm run build",
     "wsdl": "node scripts/buscar-wsdl.js",
     "diagnostico:listagem": "node scripts/diagnostico-listagem.cjs"

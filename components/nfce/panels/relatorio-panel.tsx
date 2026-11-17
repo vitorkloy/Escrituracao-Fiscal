@@ -20,6 +20,21 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
   const [qtdXmlFormatoChave44, setQtdXmlFormatoChave44] = useState(0)
   const [xmlsNotas, setXmlsNotas] = useState<string[]>([])
   const [totalXmlArvore, setTotalXmlArvore] = useState(0)
+  const [arquivoEfd, setArquivoEfd] = useState('')
+  const [isGerandoEfd, setIsGerandoEfd] = useState(false)
+  const [isCarregandoEfd, setIsCarregandoEfd] = useState(false)
+  const [previewEfd, setPreviewEfd] = useState<{
+    nome: string
+    cnpj: string
+    uf: string
+    dtIni: string
+    dtFin: string
+    documentos: number
+    aprovados: number
+    cancelados: number
+    itensC170: number
+    analiticosC190: number
+  } | null>(null)
 
   async function carregarPreviewXmls(pastaAlvo: string) {
     if (!isElectron || !pastaAlvo) {
@@ -120,6 +135,64 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
     }
   }
 
+  async function selecionarEfd() {
+    if (!isElectron) return
+    try {
+      const r = await window.electron.relatorio.selecionarEfd()
+      if (!r) return
+      setArquivoEfd(r)
+      setIsCarregandoEfd(true)
+      setPreviewEfd(null)
+      try {
+        const resp = await window.electron.relatorio.previewEfd(r)
+        if (!resp.ok) {
+          showToast('erro', resp.xMotivo ?? 'Falha ao ler o EFD.')
+          return
+        }
+        setPreviewEfd(resp.resumo ?? null)
+      } catch (err) {
+        showToast('erro', err instanceof Error ? err.message : 'Erro ao ler o EFD.')
+      } finally {
+        setIsCarregandoEfd(false)
+      }
+    } catch (err) {
+      showToast('erro', err instanceof Error ? err.message : 'Erro ao selecionar o EFD.')
+    }
+  }
+
+  async function gerarXlsxEfd() {
+    if (!isElectron) {
+      showToast('erro', 'Funcionalidade disponível apenas no aplicativo desktop.')
+      return
+    }
+    if (!arquivoEfd) {
+      showToast('erro', 'Selecione o arquivo EFD ICMS/IPI.')
+      return
+    }
+
+    setIsGerandoEfd(true)
+    try {
+      const resp = await window.electron.relatorio.gerarXlsxEfd(arquivoEfd)
+      if (!resp.ok) {
+        showToast('erro', resp.xMotivo ?? 'Falha ao gerar o XLSX a partir do EFD.')
+        return
+      }
+      const aprovados = resp.aprovados ?? 0
+      const cancelados = resp.cancelados ?? 0
+      const notas = resp.notas ?? 0
+      const itens = resp.itens ?? 0
+      const arquivo = resp.arquivo ?? (resp.arquivos ?? [])[0] ?? 'relatorio.xlsx'
+      showToast(
+        'ok',
+        `EFD: ${aprovados} aprovado(s), ${cancelados} cancelado(s), ${notas} nota(s)/${itens} item(ns) → ${arquivo}.`
+      )
+    } catch (err) {
+      showToast('erro', err instanceof Error ? err.message : 'Erro ao gerar XLSX do EFD.')
+    } finally {
+      setIsGerandoEfd(false)
+    }
+  }
+
   async function gerarNotasXlsx() {
     if (!isElectron) {
       showToast('erro', 'Funcionalidade disponível apenas no aplicativo desktop.')
@@ -155,7 +228,7 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
     }
   }
 
-  const ocupado = isGerando || isGerandoNotas
+  const ocupado = isGerando || isGerandoNotas || isGerandoEfd
 
   return (
     <div className="fade-in flex flex-col h-full">
@@ -165,7 +238,7 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
         </h2>
 
         <p className="text-sm text-[var(--text-secondary)] mb-4">
-          Selecione a pasta com os XMLs. O comparativo NFC-e usa a pasta plana; o relatório Notas
+          Gere os relatórios a partir dos XMLs (selecione a pasta abaixo) ou de um arquivo EFD ICMS/IPI (seção no fim da página). Com XMLs, o comparativo NFC-e usa a pasta plana; o relatório Notas
           percorre subpastas (ex.: DistDFe ou SAT <span className="font-mono">CNPJ/ano/mês</span>).
         </p>
 
@@ -342,6 +415,97 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
             className="flex items-center justify-center px-5 py-2.5 rounded text-sm font-semibold no-drag bg-[var(--teal-glow)] border border-[var(--teal-dim)] text-[var(--teal)] disabled:opacity-60"
           >
             {isGerandoNotas ? 'Gerando…' : 'Gerar relatório Notas'}
+          </button>
+        </section>
+
+        <section>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-primary)] mb-2">
+            Relatório a partir de EFD ICMS/IPI
+          </h3>
+          <p className="text-sm text-[var(--text-secondary)] mb-3">
+            Um único <span className="font-mono">.xlsx</span> (abas Comparativo aprovado, Comparativo
+            cancelamento e Notas no layout FSist), gerado a partir de um arquivo SPED Fiscal{' '}
+            <span className="font-mono">.txt</span> (registros 0000, C100, C170, C190). Encoding
+            latin1/windows-1252. O nome usa razão social e CNPJ do registro 0000. O ficheiro é gravado
+            na pasta do EFD.
+          </p>
+
+          <div className="flex gap-3 mb-3">
+            <button
+              type="button"
+              onClick={() => void selecionarEfd()}
+              className="flex-1 py-2.5 rounded text-sm font-semibold transition-all no-drag bg-[var(--bg-raised)] border border-[var(--border)] text-[var(--text-primary)]"
+              disabled={ocupado}
+            >
+              {arquivoEfd ? 'Trocar arquivo EFD' : 'Selecionar arquivo EFD'}
+            </button>
+          </div>
+
+          <div className="mb-3">
+            <p className="text-xs text-[var(--text-muted)]">Arquivo atual</p>
+            <p
+              className="text-xs font-mono truncate"
+              style={{ color: 'var(--text-primary)' }}
+              title={arquivoEfd || '—'}
+            >
+              {arquivoEfd || '—'}
+            </p>
+          </div>
+
+          <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-3 mb-3">
+            <p className="text-xs uppercase tracking-widest text-[var(--text-muted)] mb-2">
+              Prévia do EFD
+            </p>
+            {isCarregandoEfd ? (
+              <p className="text-xs text-[var(--text-muted)]">Lendo arquivo…</p>
+            ) : !previewEfd ? (
+              <p className="text-xs text-[var(--text-muted)]">
+                Nenhum EFD selecionado. Escolha o <span className="font-mono">.txt</span> do SPED
+                Fiscal.
+              </p>
+            ) : (
+              <div className="text-xs text-[var(--text-secondary)] space-y-1">
+                <p>
+                  Empresa:{' '}
+                  <span className="font-semibold text-[var(--text-primary)]">{previewEfd.nome}</span>
+                </p>
+                <p>
+                  CNPJ:{' '}
+                  <span className="font-mono text-[var(--text-primary)]">{previewEfd.cnpj}</span>
+                  {previewEfd.uf ? ` · UF ${previewEfd.uf}` : ''}
+                </p>
+                <p>
+                  Período: {previewEfd.dtIni} a {previewEfd.dtFin}
+                </p>
+                <p>
+                  Documentos C100:{' '}
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {previewEfd.documentos}
+                  </span>{' '}
+                  ({previewEfd.aprovados} aprovados, {previewEfd.cancelados} cancelados)
+                </p>
+                <p>
+                  Itens C170:{' '}
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {previewEfd.itensC170}
+                  </span>
+                  {' · '}
+                  Analíticos C190:{' '}
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {previewEfd.analiticosC190}
+                  </span>
+                </p>
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void gerarXlsxEfd()}
+            disabled={ocupado || !arquivoEfd}
+            className="flex items-center justify-center px-5 py-2.5 rounded text-sm font-semibold no-drag bg-[var(--teal-glow)] border border-[var(--teal-dim)] text-[var(--teal)] disabled:opacity-60"
+          >
+            {isGerandoEfd ? 'Gerando…' : 'Gerar relatório do EFD'}
           </button>
         </section>
       </div>

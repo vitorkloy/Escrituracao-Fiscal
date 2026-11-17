@@ -257,6 +257,12 @@ const MANUAL_SECOES_MODULOS: ManualSectionData[] = [
         costumam incluir <strong>razão social</strong> e <strong>CNPJ</strong> quando esses dados são obtidos dos XMLs.
       </>,
       <>
+        Também dá para gerar <strong>um único XLSX</strong> (abas de comparativo aprovado, cancelamento e Notas/itens, layout FSist) a partir de um arquivo{' '}
+        <strong>EFD ICMS/IPI</strong> (SPED Fiscal <code className="text-[11px]">.txt</code>): escolha o ficheiro, confira
+        razão social/CNPJ do registro <code className="text-[11px]">0000</code> e os totais de C100/C170/C190, depois{' '}
+        <strong>Gerar relatório do EFD</strong>. O ficheiro sai na pasta do EFD, com o nome razão social + CNPJ.
+      </>,
+      <>
         <strong>Importar XMLs de saída:</strong> nos módulos NF-e e CT-e use a aba <strong>Importar saída</strong>; no SAT,
         use <strong>Importar cupons</strong>. Depois <strong>Relatório Notas</strong> na mesma pasta.
       </>,

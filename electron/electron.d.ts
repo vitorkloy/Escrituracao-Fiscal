@@ -519,6 +519,37 @@ declare global {
           avisos?: string[]
           xMotivo?: string
         }>
+        selecionarEfd(): Promise<string | null>
+        previewEfd(caminhoEfd: string): Promise<{
+          ok: boolean
+          arquivo?: string
+          resumo?: {
+            nome: string
+            cnpj: string
+            uf: string
+            dtIni: string
+            dtFin: string
+            documentos: number
+            aprovados: number
+            cancelados: number
+            itensC170: number
+            analiticosC190: number
+          }
+          xMotivo?: string
+        }>
+        gerarXlsxEfd(caminhoEfd: string): Promise<{
+          ok: boolean
+          pastaSaida?: string
+          arquivo?: string
+          arquivos?: string[]
+          arquivoNotas?: string
+          notas?: number
+          itens?: number
+          aprovados?: number
+          cancelados?: number
+          cabecalho?: { nome?: string; cnpj?: string }
+          xMotivo?: string
+        }>
       }
       xmlRetencao: {
         selecionarXmls(): Promise<string[]>
