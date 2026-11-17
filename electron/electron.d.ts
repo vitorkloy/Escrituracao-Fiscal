@@ -540,6 +540,7 @@ declare global {
         gerarXlsxEfd(caminhoEfd: string): Promise<{
           ok: boolean
           pastaSaida?: string
+          arquivo?: string
           arquivos?: string[]
           arquivoNotas?: string
           notas?: number

@@ -17,11 +17,9 @@ import {
 } from './efd-icms-ipi-parser'
 import {
   formatarCnpjCpf,
-  gerarComparativoXlsxBuffer,
-  gerarRelatorioNotasXlsxBuffer,
+  gerarRelatorioEfdXlsxBuffer,
   linhaRelatorioNotasEmBranco,
-  montarNomeArquivoRelatorioNotas,
-  montarNomesArquivosRelatorio,
+  montarNomeArquivoRelatorioEfd,
   parseValorMonetarioRelatorio,
   type CabecalhoEmpresaRelatorio,
   type RelatorioComparativoLinha,
@@ -126,6 +124,9 @@ function mapearC170(
   l.icmsVBc = parseValorMonetarioRelatorio(item.vlBcIcms)
   l.icmsAliq = parseValorMonetarioRelatorio(item.aliqIcms)
   l.icmsValor = parseValorMonetarioRelatorio(item.vlIcms)
+  l.icmsStVBc = parseValorMonetarioRelatorio(item.vlBcIcmsSt)
+  l.icmsStAliq = parseValorMonetarioRelatorio(item.aliqSt)
+  l.icmsStValor = parseValorMonetarioRelatorio(item.vlIcmsSt)
   l.ipiValor = parseValorMonetarioRelatorio(item.vlIpi)
   l.pisCst = item.cstPis
   l.pisVBc = parseValorMonetarioRelatorio(item.vlBcPis)
@@ -150,12 +151,26 @@ function mapearC190(
   l.codigoBarras = 'SEM GTIN'
   l.cfop = an.cfop
   l.icmsCst = an.cstIcms
-  l.vProd = parseValorMonetarioRelatorio(an.vlOpr)
+  // VL_OPR inclui frete/encargos; mercadoria só quando há um único C190.
+  if (doc.analiticos.length === 1) {
+    l.vProd = parseValorMonetarioRelatorio(doc.vlMerc)
+  }
   l.icmsVBc = parseValorMonetarioRelatorio(an.vlBcIcms)
   l.icmsAliq = parseValorMonetarioRelatorio(an.aliqIcms)
   l.icmsValor = parseValorMonetarioRelatorio(an.vlIcms)
+  l.icmsStVBc = parseValorMonetarioRelatorio(an.vlBcIcmsSt)
+  l.icmsStValor = parseValorMonetarioRelatorio(an.vlIcmsSt)
   l.ipiValor = parseValorMonetarioRelatorio(an.vlIpi)
+  if (doc.analiticos.length === 1) {
+    l.pisValor = parseValorMonetarioRelatorio(doc.vlPis)
+    l.cofinsValor = parseValorMonetarioRelatorio(doc.vlCofins)
+  }
   return l
+}
+
+function identidadeDocumento(doc: EfdC100): string {
+  if (doc.chvNfe) return doc.chvNfe
+  return [doc.indEmit, doc.codPart, doc.codMod, doc.ser, doc.numDoc, doc.dtDoc].join('|')
 }
 
 export function mapearEfdParaLinhasNotas(parsed: EfdParsed): RelatorioNotasLinha[] {
@@ -175,6 +190,13 @@ export function mapearEfdParaLinhasNotas(parsed: EfdParsed): RelatorioNotasLinha
     unica.item = '001'
     unica.codigoBarras = 'SEM GTIN'
     unica.vProd = parseValorMonetarioRelatorio(doc.vlMerc || doc.vlDoc)
+    unica.icmsVBc = parseValorMonetarioRelatorio(doc.vlBcIcms)
+    unica.icmsValor = parseValorMonetarioRelatorio(doc.vlIcms)
+    unica.icmsStVBc = parseValorMonetarioRelatorio(doc.vlBcIcmsSt)
+    unica.icmsStValor = parseValorMonetarioRelatorio(doc.vlIcmsSt)
+    unica.ipiValor = parseValorMonetarioRelatorio(doc.vlIpi)
+    unica.pisValor = parseValorMonetarioRelatorio(doc.vlPis)
+    unica.cofinsValor = parseValorMonetarioRelatorio(doc.vlCofins)
     linhas.push(unica)
   }
   linhas.sort((a, b) => {
@@ -234,6 +256,7 @@ export function previewRelatorioEfd(caminho: string): {
 export async function gerarRelatoriosEfd(caminhoEfd: string): Promise<{
   ok: boolean
   pastaSaida?: string
+  arquivo?: string
   arquivos?: string[]
   arquivoNotas?: string
   notas?: number
@@ -261,28 +284,21 @@ export async function gerarRelatoriosEfd(caminhoEfd: string): Promise<{
     }
 
     const pastaSaida = path.dirname(path.resolve(caminhoEfd))
-    const nomes = montarNomesArquivosRelatorio(cabecalho)
-    const arquivoNotas = montarNomeArquivoRelatorioNotas(cabecalho)
-    const arquivos: string[] = []
+    const arquivo = montarNomeArquivoRelatorioEfd(cabecalho)
+    const buffer = await gerarRelatorioEfdXlsxBuffer(linhasNotas, aprovados, cancelados, cabecalho)
+    fs.writeFileSync(path.join(pastaSaida, arquivo), buffer)
 
-    const xlsxAprovado = await gerarComparativoXlsxBuffer(aprovados, cabecalho)
-    const xlsxCancelamento = await gerarComparativoXlsxBuffer(cancelados, cabecalho)
-    fs.writeFileSync(path.join(pastaSaida, nomes.aprovado), xlsxAprovado)
-    fs.writeFileSync(path.join(pastaSaida, nomes.cancelado), xlsxCancelamento)
-    arquivos.push(nomes.aprovado, nomes.cancelado)
-
-    if (linhasNotas.length > 0) {
-      const xlsxNotas = await gerarRelatorioNotasXlsxBuffer(linhasNotas)
-      fs.writeFileSync(path.join(pastaSaida, arquivoNotas), xlsxNotas)
-      arquivos.push(arquivoNotas)
-    }
-
-    const chaves = new Set(linhasNotas.map((l) => l.chave || `${l.modelo}-${l.serie}-${l.numero}`))
+    const chaves = new Set(
+      parsed.documentos
+        .filter((d) => !efdDocCancelado(d.codSit) && !efdDocSemDocumento(d.codSit))
+        .map(identidadeDocumento)
+    )
     return {
       ok: true,
       pastaSaida,
-      arquivos,
-      arquivoNotas: linhasNotas.length > 0 ? arquivoNotas : undefined,
+      arquivo,
+      arquivos: [arquivo],
+      arquivoNotas: arquivo,
       notas: chaves.size,
       itens: linhasNotas.length,
       aprovados: aprovados.length,

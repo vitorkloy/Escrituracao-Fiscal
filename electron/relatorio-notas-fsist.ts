@@ -166,6 +166,9 @@ function extrairIcms(imposto: unknown): {
   vBc: number | null
   pIcms: number | null
   vIcms: number | null
+  vBcSt: number | null
+  pIcmsSt: number | null
+  vIcmsSt: number | null
   pRedBc: number | null
   pRedBcSt: number | null
   pRedBcEfet: number | null
@@ -177,6 +180,9 @@ function extrairIcms(imposto: unknown): {
     vBc: numCampo(g, 'vBC') ?? parseNumeroXml(encontrarTexto(icms, 'vBC')),
     pIcms: numCampo(g, 'pICMS') ?? parseNumeroXml(encontrarTexto(icms, 'pICMS')),
     vIcms: numCampo(g, 'vICMS') ?? parseNumeroXml(encontrarTexto(icms, 'vICMS')),
+    vBcSt: numCampo(g, 'vBCST') ?? parseNumeroXml(encontrarTexto(icms, 'vBCST')),
+    pIcmsSt: numCampo(g, 'pICMSST') ?? parseNumeroXml(encontrarTexto(icms, 'pICMSST')),
+    vIcmsSt: numCampo(g, 'vICMSST') ?? parseNumeroXml(encontrarTexto(icms, 'vICMSST')),
     pRedBc: numCampo(g, 'pRedBC') ?? parseNumeroXml(encontrarTexto(icms, 'pRedBC')),
     pRedBcSt: numCampo(g, 'pRedBCST') ?? parseNumeroXml(encontrarTexto(icms, 'pRedBCST')),
     pRedBcEfet: numCampo(g, 'pRedBCEfet') ?? parseNumeroXml(encontrarTexto(icms, 'pRedBCEfet')),
@@ -572,6 +578,9 @@ function extrairLinhasCfeSat(
       icmsVBc: icms.vBc,
       icmsAliq: icms.pIcms,
       icmsValor: icms.vIcms,
+      icmsStVBc: icms.vBcSt,
+      icmsStAliq: icms.pIcmsSt,
+      icmsStValor: icms.vIcmsSt,
       ipiValor: extrairIpiValor(imposto),
       pisCst: pis.cst,
       pisVBc: pis.vBc,
@@ -713,6 +722,9 @@ export function extrairLinhasRelatorioNotas(xmlStr: string): {
       icmsVBc: icms.vBc,
       icmsAliq: icms.pIcms,
       icmsValor: icms.vIcms,
+      icmsStVBc: icms.vBcSt,
+      icmsStAliq: icms.pIcmsSt,
+      icmsStValor: icms.vIcmsSt,
       ipiValor: extrairIpiValor(imposto),
       pisCst: pis.cst,
       pisVBc: pis.vBc,

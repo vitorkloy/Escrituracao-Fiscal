@@ -73,6 +73,9 @@ export interface RelatorioNotasLinha {
   tpNFCredito: string
   finNFe: string
   crt: string
+  icmsStVBc: number | null
+  icmsStAliq: number | null
+  icmsStValor: number | null
 }
 
 export interface RelatorioComparativoLinha {
@@ -148,6 +151,9 @@ export const HEADERS_NOTAS = [
   'tpNFCredito',
   'finNFe',
   'CRT',
+  'ICMS ST Valor da BC',
+  'ICMS ST Alíquota',
+  'ICMS ST Valor',
 ] as const
 
 export function linhaRelatorioNotasEmBranco(): RelatorioNotasLinha {
@@ -215,6 +221,9 @@ export function linhaRelatorioNotasEmBranco(): RelatorioNotasLinha {
     tpNFCredito: '',
     finNFe: '',
     crt: '',
+    icmsStVBc: null,
+    icmsStAliq: null,
+    icmsStValor: null,
   }
 }
 
@@ -279,6 +288,10 @@ export function montarNomesArquivosRelatorio(cabecalhoEmpresa?: CabecalhoEmpresa
 
 export function montarNomeArquivoRelatorioNotas(cab?: RelatorioNotasCabecalho): string {
   return `${baseNomeEmpresaCnpj(cab)} - relatorio_notas.xlsx`
+}
+
+export function montarNomeArquivoRelatorioEfd(cab?: CabecalhoEmpresaRelatorio): string {
+  return `${baseNomeEmpresaCnpj(cab)} - relatorio.xlsx`
 }
 
 function linhaNotasParaArray(l: RelatorioNotasLinha): (string | number | null)[] {
@@ -346,15 +359,19 @@ function linhaNotasParaArray(l: RelatorioNotasLinha): (string | number | null)[]
     l.tpNFCredito,
     l.finNFe,
     l.crt,
+    l.icmsStVBc,
+    l.icmsStAliq,
+    l.icmsStValor,
   ]
 }
 
-export async function gerarComparativoXlsxBuffer(
+export function adicionarAbaComparativo(
+  wb: ExcelJS.Workbook,
+  nomeAba: string,
   linhas: RelatorioComparativoLinha[],
   cabecalhoEmpresa?: CabecalhoEmpresaRelatorio
-): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook()
-  const ws = wb.addWorksheet('Comparativo NFC-e', {
+): void {
+  const ws = wb.addWorksheet(nomeAba, {
     views: [{ state: 'frozen', ySplit: 2 }],
   })
 
@@ -419,15 +436,19 @@ export async function gerarComparativoXlsxBuffer(
     from: 'A2',
     to: 'E2',
   }
-
-  const buffer = await wb.xlsx.writeBuffer()
-  return Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer)
 }
 
-export async function gerarRelatorioNotasXlsxBuffer(
-  linhas: RelatorioNotasLinha[]
-): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook()
+const NUM_FMT_NOTAS = new Set(
+  HEADERS_NOTAS.map((h, i) => ({ h, col: i + 1 }))
+    .filter(({ h }) =>
+      /^(Qtd|Valor |ICMS Valor|ICMS Alíquota|ICMS ST |IPI |PIS Valor|PIS Alíquota|COFINS Valor|COFINS Alíquota|IBS\/CBS Valor|IBS |CBS |pRed)/.test(
+        h
+      )
+    )
+    .map(({ col }) => col)
+)
+
+export function adicionarAbaNotas(wb: ExcelJS.Workbook, linhas: RelatorioNotasLinha[]): void {
   const ws = wb.addWorksheet('Notas', {
     views: [{ state: 'frozen', ySplit: 1 }],
   })
@@ -440,15 +461,10 @@ export async function gerarRelatorioNotasXlsxBuffer(
     fgColor: { argb: 'FFE5E7EB' },
   }
 
-  // Colunas numéricas (1-based): Qtd=20, valores monetários/alíquotas
-  const numFmtCols = new Set([
-    20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 31, 33, 34, 35, 37, 38, 39, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 57, 58, 59,
-  ])
-
   for (const l of linhas) {
     const row = ws.addRow(linhaNotasParaArray(l))
     for (let c = 1; c <= HEADERS_NOTAS.length; c++) {
-      row.getCell(c).numFmt = numFmtCols.has(c) ? '#,##0.00' : '@'
+      row.getCell(c).numFmt = NUM_FMT_NOTAS.has(c) ? '#,##0.00' : '@'
     }
   }
 
@@ -461,7 +477,39 @@ export async function gerarRelatorioNotasXlsxBuffer(
       to: { row: 1, column: HEADERS_NOTAS.length },
     }
   }
+}
 
+async function workbookParaBuffer(wb: ExcelJS.Workbook): Promise<Buffer> {
   const buffer = await wb.xlsx.writeBuffer()
   return Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer)
+}
+
+export async function gerarComparativoXlsxBuffer(
+  linhas: RelatorioComparativoLinha[],
+  cabecalhoEmpresa?: CabecalhoEmpresaRelatorio
+): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook()
+  adicionarAbaComparativo(wb, 'Comparativo NFC-e', linhas, cabecalhoEmpresa)
+  return workbookParaBuffer(wb)
+}
+
+export async function gerarRelatorioNotasXlsxBuffer(
+  linhas: RelatorioNotasLinha[]
+): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook()
+  adicionarAbaNotas(wb, linhas)
+  return workbookParaBuffer(wb)
+}
+
+export async function gerarRelatorioEfdXlsxBuffer(
+  linhasNotas: RelatorioNotasLinha[],
+  aprovados: RelatorioComparativoLinha[],
+  cancelados: RelatorioComparativoLinha[],
+  cabecalhoEmpresa?: CabecalhoEmpresaRelatorio
+): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook()
+  adicionarAbaComparativo(wb, 'Comparativo aprovado', aprovados, cabecalhoEmpresa)
+  adicionarAbaComparativo(wb, 'Comparativo cancelamento', cancelados, cabecalhoEmpresa)
+  adicionarAbaNotas(wb, linhasNotas)
+  return workbookParaBuffer(wb)
 }

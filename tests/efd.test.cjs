@@ -50,6 +50,18 @@ test('parser: lê 0000, 0150, 0200, C100, C170 e C190 da amostra', () => {
   assert.equal(nfe.itens.length, 1)
   assert.equal(nfe.itens[0].cfop, '5102')
   assert.equal(nfe.itens[0].vlItem, '100,00')
+  assert.equal(nfe.itens[0].vlBcIcms, '100,00')
+  assert.equal(nfe.itens[0].aliqIcms, '18,00')
+  assert.equal(nfe.itens[0].vlIcms, '18,00')
+  assert.equal(nfe.itens[0].vlBcIcmsSt, '10,00')
+  assert.equal(nfe.itens[0].aliqSt, '18,00')
+  assert.equal(nfe.itens[0].vlIcmsSt, '1,80')
+  assert.equal(nfe.itens[0].vlBcPis, '100,00')
+  assert.equal(nfe.itens[0].aliqPis, '1,65')
+  assert.equal(nfe.itens[0].vlPis, '1,65')
+  assert.equal(nfe.itens[0].vlBcCofins, '100,00')
+  assert.equal(nfe.itens[0].aliqCofins, '7,60')
+  assert.equal(nfe.itens[0].vlCofins, '7,60')
   assert.equal(nfe.analiticos.length, 1)
 
   const nfce = parsed.documentos[1]
@@ -84,6 +96,12 @@ test('parser: latin1/windows-1252 preserva cedilha e til', () => {
   assert.equal(parsed.abertura.nome, 'EMPRESA AÇÃO LTDA')
 })
 
+test('parser: windows-1252 decodifica aspas curvas (bytes 0x93/0x94)', () => {
+  const aspas = Buffer.from([0x93, 0x41, 0x94])
+  const texto = parser.decodificarTextoEfd(aspas)
+  assert.equal(texto, '\u201C' + 'A' + '\u201D')
+})
+
 test('parser: rejeita arquivo sem registro 0000', () => {
   assert.throws(() => parser.parseEfdTexto('|C100|1|0||55|00|1|1||01012024|01012024|1,00|'), /0000/)
 })
@@ -113,10 +131,23 @@ test('relatório: C170 vira linha de item; C190 cobre NFC-e sem item; cancelado 
   assert.equal(nfe.vProd, 100)
   assert.equal(nfe.vUnit, 50)
   assert.equal(nfe.icmsCst, '000')
+  assert.equal(nfe.icmsVBc, 100)
+  assert.equal(nfe.icmsAliq, 18)
   assert.equal(nfe.icmsValor, 18)
+  assert.equal(nfe.icmsStVBc, 10)
+  assert.equal(nfe.icmsStAliq, 18)
+  assert.equal(nfe.icmsStValor, 1.8)
   assert.equal(nfe.pisCst, '01')
+  assert.equal(nfe.pisVBc, 100)
+  assert.equal(nfe.pisAliq, 1.65)
   assert.equal(nfe.pisValor, 1.65)
+  assert.equal(nfe.cofinsCst, '01')
+  assert.equal(nfe.cofinsVBc, 100)
+  assert.equal(nfe.cofinsAliq, 7.6)
   assert.equal(nfe.cofinsValor, 7.6)
+  assert.equal(nfe.ibsCbsCst, '')
+  assert.equal(nfe.cbsValor, null)
+  assert.equal(nfe.ibsValorTotal, null)
   assert.equal(nfe.emitenteDoc.replace(/\D/g, ''), CNPJ)
   assert.equal(nfe.emitenteNome, 'EMPRESA ACAO LTDA')
   assert.equal(nfe.destNome, 'CLIENTE GAMA LTDA')
@@ -144,7 +175,8 @@ test('relatório: comparativo separa aprovado e cancelamento', () => {
   assert.equal(aprovados.map((l) => l.chave).sort().join(','), [CHAVE_NFE, CHAVE_NFCE].sort().join(','))
 })
 
-test('relatório: gera XLSX com o mesmo nome (razão social + CNPJ)', async () => {
+test('relatório: gera um único XLSX com abas e nome razão social + CNPJ', async () => {
+  const ExcelJS = require('exceljs')
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'efis-efd-'))
   const origem = path.join(dir, 'sped.txt')
   fs.copyFileSync(FIXTURE, origem)
@@ -156,16 +188,27 @@ test('relatório: gera XLSX com o mesmo nome (razão social + CNPJ)', async () =
   assert.equal(r.itens, 2)
   assert.equal(r.notas, 2)
 
-  const base = xlsxComum.montarNomesArquivosRelatorio({ nome: 'EMPRESA ACAO LTDA', cnpj: CNPJ })
-  const notas = xlsxComum.montarNomeArquivoRelatorioNotas({ nome: 'EMPRESA ACAO LTDA', cnpj: CNPJ })
-  assert.match(base.aprovado, /EMPRESA ACAO LTDA - 11222333000181 - comparativo_aprovado\.xlsx$/)
-  assert.match(base.cancelado, /comparativo_cancelamento\.xlsx$/)
-  assert.match(notas, /relatorio_notas\.xlsx$/)
-  assert.equal(fs.existsSync(path.join(dir, base.aprovado)), true)
-  assert.equal(fs.existsSync(path.join(dir, base.cancelado)), true)
-  assert.equal(fs.existsSync(path.join(dir, notas)), true)
-  assert.ok(r.arquivos.includes(base.aprovado))
-  assert.ok(r.arquivos.includes(notas))
+  const arquivo = xlsxComum.montarNomeArquivoRelatorioEfd({ nome: 'EMPRESA ACAO LTDA', cnpj: CNPJ })
+  assert.match(arquivo, /EMPRESA ACAO LTDA - 11222333000181 - relatorio\.xlsx$/)
+  assert.equal(r.arquivo, arquivo)
+  assert.equal(r.arquivos.length, 1)
+  assert.equal(fs.existsSync(path.join(dir, arquivo)), true)
+  assert.equal(fs.readdirSync(dir).filter((n) => n.endsWith('.xlsx')).length, 1)
+
+  const wb = new ExcelJS.Workbook()
+  await wb.xlsx.readFile(path.join(dir, arquivo))
+  assert.deepEqual(
+    wb.worksheets.map((ws) => ws.name),
+    ['Comparativo aprovado', 'Comparativo cancelamento', 'Notas']
+  )
+  const notas = wb.getWorksheet('Notas')
+  assert.equal(notas.getRow(1).getCell(1).value, xlsxComum.HEADERS_NOTAS[0])
+  assert.equal(notas.getRow(1).cellCount, xlsxComum.HEADERS_NOTAS.length)
+  assert.ok(xlsxComum.HEADERS_NOTAS.includes('ICMS ST Valor'))
+  assert.ok(xlsxComum.HEADERS_NOTAS.includes('PIS Valor'))
+  assert.ok(xlsxComum.HEADERS_NOTAS.includes('COFINS Valor'))
+  assert.ok(xlsxComum.HEADERS_NOTAS.includes('Valor CBS'))
+  assert.ok(xlsxComum.HEADERS_NOTAS.includes('Valor Total IBS'))
 })
 
 test('preview: devolve resumo do arquivo em disco (latin1)', () => {

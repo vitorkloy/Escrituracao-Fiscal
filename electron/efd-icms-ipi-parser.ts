@@ -80,6 +80,9 @@ export interface EfdC170 {
   vlBcIcms: string
   aliqIcms: string
   vlIcms: string
+  vlBcIcmsSt: string
+  aliqSt: string
+  vlIcmsSt: string
   cstIpi: string
   vlIpi: string
   cstPis: string
@@ -99,6 +102,8 @@ export interface EfdC190 {
   vlOpr: string
   vlBcIcms: string
   vlIcms: string
+  vlBcIcmsSt: string
+  vlIcmsSt: string
   vlIpi: string
 }
 
@@ -120,6 +125,8 @@ export interface EfdC100 {
   vlOutDa: string
   vlBcIcms: string
   vlIcms: string
+  vlBcIcmsSt: string
+  vlIcmsSt: string
   vlIpi: string
   vlPis: string
   vlCofins: string
@@ -181,14 +188,29 @@ export function formatarDataEfdCurta(dt: string): string {
   return dt.trim()
 }
 
+/** Bytes 0x80–0x9F de Windows-1252 (diferem do latin1/ISO-8859-1). */
+const WIN1252_80_9F =
+  '\u20AC\u0081\u201A\u0192\u201E\u2026\u2020\u2021\u02C6\u2030\u0160\u2039\u0152\u008D\u017D\u008F' +
+  '\u0090\u2018\u2019\u201C\u201D\u2022\u2013\u2014\u02DC\u2122\u0161\u203A\u0153\u009D\u017E\u0178'
+
+function decodificarWindows1252(buf: Buffer): string {
+  let out = ''
+  for (let i = 0; i < buf.length; i++) {
+    const b = buf[i]
+    if (b >= 0x80 && b <= 0x9f) out += WIN1252_80_9F[b - 0x80]
+    else out += String.fromCharCode(b)
+  }
+  return out
+}
+
 /**
- * Lê bytes do SPED: BOM UTF-8 → utf8; senão latin1 (cobre windows-1252 para ç/ã/é).
+ * Lê bytes do SPED: BOM UTF-8 → utf8; senão windows-1252 (superset de latin1 para ç/ã/é).
  */
 export function decodificarTextoEfd(buf: Buffer): string {
   if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) {
     return buf.subarray(3).toString('utf8')
   }
-  return buf.toString('latin1')
+  return decodificarWindows1252(buf)
 }
 
 const NOVO_DOCUMENTO = /^(C100|C300|C350|C400|C405|C490|C500|C600|C700|C800|C850|C860|C990|E001|D001|H001)$/
@@ -246,6 +268,8 @@ function parseC100(cols: string[]): EfdC100 {
     vlOutDa: c(cols, 19),
     vlBcIcms: c(cols, 20),
     vlIcms: c(cols, 21),
+    vlBcIcmsSt: c(cols, 22),
+    vlIcmsSt: c(cols, 23),
     vlIpi: c(cols, 24),
     vlPis: c(cols, 25),
     vlCofins: c(cols, 26),
@@ -268,6 +292,9 @@ function parseC170(cols: string[]): EfdC170 {
     vlBcIcms: c(cols, 12),
     aliqIcms: c(cols, 13),
     vlIcms: c(cols, 14),
+    vlBcIcmsSt: c(cols, 15),
+    aliqSt: c(cols, 16),
+    vlIcmsSt: c(cols, 17),
     cstIpi: c(cols, 19),
     vlIpi: c(cols, 23),
     cstPis: c(cols, 24),
@@ -289,6 +316,8 @@ function parseC190(cols: string[]): EfdC190 {
     vlOpr: c(cols, 4),
     vlBcIcms: c(cols, 5),
     vlIcms: c(cols, 6),
+    vlBcIcmsSt: c(cols, 7),
+    vlIcmsSt: c(cols, 8),
     vlIpi: c(cols, 10),
   }
 }

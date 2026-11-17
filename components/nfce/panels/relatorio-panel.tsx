@@ -181,10 +181,10 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
       const cancelados = resp.cancelados ?? 0
       const notas = resp.notas ?? 0
       const itens = resp.itens ?? 0
-      const arquivos = (resp.arquivos ?? []).join(', ')
+      const arquivo = resp.arquivo ?? (resp.arquivos ?? [])[0] ?? 'relatorio.xlsx'
       showToast(
         'ok',
-        `EFD: ${aprovados} aprovado(s), ${cancelados} cancelado(s), ${notas} nota(s)/${itens} item(ns) → ${arquivos}.`
+        `EFD: ${aprovados} aprovado(s), ${cancelados} cancelado(s), ${notas} nota(s)/${itens} item(ns) → ${arquivo}.`
       )
     } catch (err) {
       showToast('erro', err instanceof Error ? err.message : 'Erro ao gerar XLSX do EFD.')
@@ -423,12 +423,11 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
             Relatório a partir de EFD ICMS/IPI
           </h3>
           <p className="text-sm text-[var(--text-secondary)] mb-3">
-            Mesmos XLSX do relatório XML (
-            <span className="font-mono">comparativo_aprovado</span>,{' '}
-            <span className="font-mono">comparativo_cancelamento</span> e Relatório Notas), gerados a
-            partir de um arquivo SPED Fiscal <span className="font-mono">.txt</span> (registros 0000,
-            C100, C170, C190). Encoding latin1/windows-1252. Os nomes usam razão social e CNPJ do
-            registro 0000. Os ficheiros são gravados na pasta do EFD.
+            Um único <span className="font-mono">.xlsx</span> (abas Comparativo aprovado, Comparativo
+            cancelamento e Notas no layout FSist), gerado a partir de um arquivo SPED Fiscal{' '}
+            <span className="font-mono">.txt</span> (registros 0000, C100, C170, C190). Encoding
+            latin1/windows-1252. O nome usa razão social e CNPJ do registro 0000. O ficheiro é gravado
+            na pasta do EFD.
           </p>
 
           <div className="flex gap-3 mb-3">
@@ -506,7 +505,7 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
             disabled={ocupado || !arquivoEfd}
             className="flex items-center justify-center px-5 py-2.5 rounded text-sm font-semibold no-drag bg-[var(--teal-glow)] border border-[var(--teal-dim)] text-[var(--teal)] disabled:opacity-60"
           >
-            {isGerandoEfd ? 'Gerando…' : 'Gerar relatórios do EFD'}
+            {isGerandoEfd ? 'Gerando…' : 'Gerar relatório do EFD'}
           </button>
         </section>
       </div>
