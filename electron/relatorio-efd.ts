@@ -95,6 +95,7 @@ function linhaBaseDoC100(doc: EfdC100, parsed: EfdParsed): RelatorioNotasLinha {
   l.destDoc = partes.destDoc
   l.destNome = partes.destNome
   l.destUf = partes.destUf
+  l.indOper = doc.indOper.trim()
   return l
 }
 

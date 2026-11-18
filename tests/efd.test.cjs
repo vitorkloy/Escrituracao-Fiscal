@@ -18,6 +18,7 @@ const FIXTURE = path.join(__dirname, 'fixtures', 'efd', 'efd-sintetico.txt')
 const CNPJ = '11222333000181'
 const CHAVE_NFE = '35240111222333000181550010000001231000012310'
 const CHAVE_NFCE = '35240111222333000181650010000004561000004561'
+const CHAVE_ENTRADA = '35240199888777000166550010000007891000007891'
 const CHAVE_CANC = '35240111222333000181550010000001241000001241'
 
 const efdComAcento = [
@@ -37,13 +38,15 @@ test('parser: lê 0000, 0150, 0200, C100, C170 e C190 da amostra', () => {
   assert.equal(parsed.abertura.cnpj, CNPJ)
   assert.equal(parsed.abertura.uf, 'SP')
   assert.equal(parsed.abertura.dtIni, '01012024')
-  assert.equal(parsed.documentos.length, 3)
+  assert.equal(parsed.documentos.length, 4)
   assert.equal(parsed.participantes.get('CLI01')?.nome, 'CLIENTE GAMA LTDA')
+  assert.equal(parsed.participantes.get('FORN01')?.nome, 'FORNECEDOR BETA SA')
   assert.equal(parsed.participantes.get('CLI01')?.uf, 'RJ')
   assert.equal(parsed.itens.get('P1')?.ncm, '22021000')
   assert.equal(parsed.itens.get('P1')?.codigoBarras, '7891234567890')
 
   const nfe = parsed.documentos[0]
+  assert.equal(nfe.indOper, '1')
   assert.equal(nfe.codMod, '55')
   assert.equal(nfe.codSit, '00')
   assert.equal(nfe.chvNfe, CHAVE_NFE)
@@ -70,7 +73,13 @@ test('parser: lê 0000, 0150, 0200, C100, C170 e C190 da amostra', () => {
   assert.equal(nfce.analiticos.length, 1)
   assert.equal(nfce.chvNfe, CHAVE_NFCE)
 
-  const canc = parsed.documentos[2]
+  const entrada = parsed.documentos[2]
+  assert.equal(entrada.indOper, '0')
+  assert.equal(entrada.indEmit, '1')
+  assert.equal(entrada.chvNfe, CHAVE_ENTRADA)
+  assert.equal(entrada.itens[0].cfop, '1102')
+
+  const canc = parsed.documentos[3]
   assert.equal(canc.codSit, '02')
   assert.equal(parser.efdDocCancelado(canc.codSit), true)
   assert.equal(canc.chvNfe, CHAVE_CANC)
@@ -79,11 +88,11 @@ test('parser: lê 0000, 0150, 0200, C100, C170 e C190 da amostra', () => {
 test('parser: resumo conta aprovados, cancelados e itens', () => {
   const parsed = parser.parseEfdTexto(fs.readFileSync(FIXTURE, 'utf-8'))
   const r = parser.resumirEfd(parsed)
-  assert.equal(r.documentos, 3)
-  assert.equal(r.aprovados, 2)
+  assert.equal(r.documentos, 4)
+  assert.equal(r.aprovados, 3)
   assert.equal(r.cancelados, 1)
-  assert.equal(r.itensC170, 1)
-  assert.equal(r.analiticosC190, 2)
+  assert.equal(r.itensC170, 2)
+  assert.equal(r.analiticosC190, 3)
   assert.equal(r.dtIni, '01/01/2024')
   assert.equal(r.dtFin, '31/01/2024')
 })
@@ -115,7 +124,7 @@ test('parser: UF a partir do código IBGE do município', () => {
 test('relatório: C170 vira linha de item; C190 cobre NFC-e sem item; cancelado fica de fora', () => {
   const parsed = parser.parseEfdTexto(fs.readFileSync(FIXTURE, 'utf-8'))
   const linhas = relatorioEfd.mapearEfdParaLinhasNotas(parsed)
-  assert.equal(linhas.length, 2)
+  assert.equal(linhas.length, 3)
 
   const nfe = linhas.find((l) => l.chave === CHAVE_NFE)
   assert.ok(nfe)
@@ -163,16 +172,38 @@ test('relatório: C170 vira linha de item; C190 cobre NFC-e sem item; cancelado 
   assert.equal(nfce.icmsAliq, 12)
 
   assert.equal(linhas.some((l) => l.chave === CHAVE_CANC), false)
+
+  const compra = linhas.find((l) => l.chave === CHAVE_ENTRADA)
+  assert.ok(compra)
+  assert.equal(compra.indOper, '0')
+  assert.equal(compra.cfop, '1102')
+  assert.equal(compra.emitenteNome, 'FORNECEDOR BETA SA')
+  assert.equal(nfe.indOper, '1')
+  assert.equal(nfce.indOper, '1')
+})
+
+test('relatório: separa notas de entrada (IND_OPER=0) e saída (IND_OPER=1)', () => {
+  const parsed = parser.parseEfdTexto(fs.readFileSync(FIXTURE, 'utf-8'))
+  const linhas = relatorioEfd.mapearEfdParaLinhasNotas(parsed)
+  const entradas = linhas.filter((l) => l.indOper === '0')
+  const saidas = linhas.filter((l) => l.indOper === '1')
+  assert.equal(entradas.length, 1)
+  assert.equal(saidas.length, 2)
+  assert.equal(entradas[0].chave, CHAVE_ENTRADA)
+  assert.deepEqual(saidas.map((l) => l.chave).sort(), [CHAVE_NFE, CHAVE_NFCE].sort())
 })
 
 test('relatório: comparativo separa aprovado e cancelamento', () => {
   const parsed = parser.parseEfdTexto(fs.readFileSync(FIXTURE, 'utf-8'))
   const { aprovados, cancelados } = relatorioEfd.mapearEfdParaComparativo(parsed)
-  assert.equal(aprovados.length, 2)
+  assert.equal(aprovados.length, 3)
   assert.equal(cancelados.length, 1)
   assert.equal(cancelados[0].chave, CHAVE_CANC)
   assert.equal(cancelados[0].nNF, '124')
-  assert.equal(aprovados.map((l) => l.chave).sort().join(','), [CHAVE_NFE, CHAVE_NFCE].sort().join(','))
+  assert.equal(
+    aprovados.map((l) => l.chave).sort().join(','),
+    [CHAVE_NFE, CHAVE_NFCE, CHAVE_ENTRADA].sort().join(',')
+  )
 })
 
 test('relatório: gera um único XLSX com abas e nome razão social + CNPJ', async () => {
@@ -183,10 +214,10 @@ test('relatório: gera um único XLSX com abas e nome razão social + CNPJ', asy
 
   const r = await relatorioEfd.gerarRelatoriosEfd(origem)
   assert.equal(r.ok, true)
-  assert.equal(r.aprovados, 2)
+  assert.equal(r.aprovados, 3)
   assert.equal(r.cancelados, 1)
-  assert.equal(r.itens, 2)
-  assert.equal(r.notas, 2)
+  assert.equal(r.itens, 3)
+  assert.equal(r.notas, 3)
 
   const arquivo = xlsxComum.montarNomeArquivoRelatorioEfd({ nome: 'EMPRESA ACAO LTDA', cnpj: CNPJ })
   assert.match(arquivo, /EMPRESA ACAO LTDA - 11222333000181 - relatorio\.xlsx$/)
@@ -199,11 +230,28 @@ test('relatório: gera um único XLSX com abas e nome razão social + CNPJ', asy
   await wb.xlsx.readFile(path.join(dir, arquivo))
   assert.deepEqual(
     wb.worksheets.map((ws) => ws.name),
-    ['Comparativo aprovado', 'Comparativo cancelamento', 'Notas']
+    ['Comparativo aprovado', 'Comparativo cancelamento', 'Notas', 'Notas - Entrada', 'Notas - Saída']
   )
   const notas = wb.getWorksheet('Notas')
+  const ent = wb.getWorksheet('Notas - Entrada')
+  const sai = wb.getWorksheet('Notas - Saída')
+  const chavesAba = (ws) => {
+    const chaves = []
+    ws.eachRow((row, n) => {
+      if (n === 1) return
+      const v = row.getCell(1).value
+      if (v) chaves.push(String(v))
+    })
+    return chaves
+  }
+  assert.equal(ent.getRow(1).getCell(1).value, xlsxComum.HEADERS_NOTAS[0])
+  assert.equal(ent.getRow(1).cellCount, xlsxComum.HEADERS_NOTAS.length)
+  assert.equal(sai.getRow(1).cellCount, xlsxComum.HEADERS_NOTAS.length)
   assert.equal(notas.getRow(1).getCell(1).value, xlsxComum.HEADERS_NOTAS[0])
   assert.equal(notas.getRow(1).cellCount, xlsxComum.HEADERS_NOTAS.length)
+  assert.deepEqual(chavesAba(notas).sort(), [CHAVE_NFE, CHAVE_NFCE, CHAVE_ENTRADA].sort())
+  assert.deepEqual(chavesAba(ent), [CHAVE_ENTRADA])
+  assert.deepEqual(chavesAba(sai).sort(), [CHAVE_NFE, CHAVE_NFCE].sort())
   assert.ok(xlsxComum.HEADERS_NOTAS.includes('ICMS ST Valor'))
   assert.ok(xlsxComum.HEADERS_NOTAS.includes('PIS Valor'))
   assert.ok(xlsxComum.HEADERS_NOTAS.includes('COFINS Valor'))

@@ -76,6 +76,8 @@ export interface RelatorioNotasLinha {
   icmsStVBc: number | null
   icmsStAliq: number | null
   icmsStValor: number | null
+  /** C100 IND_OPER: 0=entrada, 1=saída. Não vai para o XLSX. */
+  indOper?: string
 }
 
 export interface RelatorioComparativoLinha {
@@ -224,6 +226,7 @@ export function linhaRelatorioNotasEmBranco(): RelatorioNotasLinha {
     icmsStVBc: null,
     icmsStAliq: null,
     icmsStValor: null,
+    indOper: '',
   }
 }
 
@@ -448,8 +451,12 @@ const NUM_FMT_NOTAS = new Set(
     .map(({ col }) => col)
 )
 
-export function adicionarAbaNotas(wb: ExcelJS.Workbook, linhas: RelatorioNotasLinha[]): void {
-  const ws = wb.addWorksheet('Notas', {
+export function adicionarAbaNotas(
+  wb: ExcelJS.Workbook,
+  linhas: RelatorioNotasLinha[],
+  nomeAba = 'Notas'
+): void {
+  const ws = wb.addWorksheet(nomeAba, {
     views: [{ state: 'frozen', ySplit: 1 }],
   })
 
@@ -508,8 +515,12 @@ export async function gerarRelatorioEfdXlsxBuffer(
   cabecalhoEmpresa?: CabecalhoEmpresaRelatorio
 ): Promise<Buffer> {
   const wb = new ExcelJS.Workbook()
+  const entradas = linhasNotas.filter((l) => l.indOper === '0')
+  const saidas = linhasNotas.filter((l) => l.indOper === '1')
   adicionarAbaComparativo(wb, 'Comparativo aprovado', aprovados, cabecalhoEmpresa)
   adicionarAbaComparativo(wb, 'Comparativo cancelamento', cancelados, cabecalhoEmpresa)
-  adicionarAbaNotas(wb, linhasNotas)
+  adicionarAbaNotas(wb, linhasNotas, 'Notas')
+  adicionarAbaNotas(wb, entradas, 'Notas - Entrada')
+  adicionarAbaNotas(wb, saidas, 'Notas - Saída')
   return workbookParaBuffer(wb)
 }

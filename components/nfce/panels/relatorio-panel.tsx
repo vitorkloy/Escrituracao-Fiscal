@@ -424,7 +424,8 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
           </h3>
           <p className="text-sm text-[var(--text-secondary)] mb-3">
             Um único <span className="font-mono">.xlsx</span> (abas Comparativo aprovado, Comparativo
-            cancelamento e Notas no layout FSist), gerado a partir de um arquivo SPED Fiscal{' '}
+            cancelamento, Notas, Notas - Entrada e Notas - Saída no layout FSist), gerado a partir de um
+            arquivo SPED Fiscal{' '}
             <span className="font-mono">.txt</span> (registros 0000, C100, C170, C190). Encoding
             latin1/windows-1252. O nome usa razão social e CNPJ do registro 0000. O ficheiro é gravado
             na pasta do EFD.

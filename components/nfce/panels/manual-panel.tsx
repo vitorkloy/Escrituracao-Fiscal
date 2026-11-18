@@ -257,7 +257,7 @@ const MANUAL_SECOES_MODULOS: ManualSectionData[] = [
         costumam incluir <strong>razão social</strong> e <strong>CNPJ</strong> quando esses dados são obtidos dos XMLs.
       </>,
       <>
-        Também dá para gerar <strong>um único XLSX</strong> (abas de comparativo aprovado, cancelamento e Notas/itens, layout FSist) a partir de um arquivo{' '}
+        Também dá para gerar <strong>um único XLSX</strong> (abas de comparativo aprovado, cancelamento, Notas geral, Notas - Entrada e Notas - Saída pelo IND_OPER do C100, layout FSist) a partir de um arquivo{' '}
         <strong>EFD ICMS/IPI</strong> (SPED Fiscal <code className="text-[11px]">.txt</code>): escolha o ficheiro, confira
         razão social/CNPJ do registro <code className="text-[11px]">0000</code> e os totais de C100/C170/C190, depois{' '}
         <strong>Gerar relatório do EFD</strong>. O ficheiro sai na pasta do EFD, com o nome razão social + CNPJ.
