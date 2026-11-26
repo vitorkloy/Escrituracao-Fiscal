@@ -266,6 +266,12 @@ const MANUAL_SECOES_MODULOS: ManualSectionData[] = [
         <strong>Importar XMLs de saída:</strong> nos módulos NF-e e CT-e use a aba <strong>Importar saída</strong>; no SAT,
         use <strong>Importar cupons</strong>. Depois <strong>Relatório Notas</strong> na mesma pasta.
       </>,
+      <>
+        <strong>Validação Notas IBS|CBS:</strong> na mesma pasta, confere NF-e (55) e NFC-e (65) com os parâmetros
+        embarcados da Calculadora de Tributos da RFB <span className="font-mono">1.7.2</span> (CST, cClassTrib, alíquotas
+        2026, arredondamento HALF_EVEN). Não exige Java. Gera{' '}
+        <span className="font-mono">validacao_ibs_cbs.xlsx</span> com divergências destacadas.
+      </>,
     ],
   },
   {
