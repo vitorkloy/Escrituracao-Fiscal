@@ -5,20 +5,53 @@ import {
   type TipoAliquotaRfb,
 } from './ibs-cbs-parametros'
 
+/** numer/denom em inteiros; HALF_EVEN na casa pedida, sem produto binário. */
+function halfEvenDivide(numer: bigint, denom: bigint, casas: number): number {
+  if (denom === 0n) return NaN
+  let sinal = 1n
+  if (numer < 0n) {
+    sinal = -sinal
+    numer = -numer
+  }
+  if (denom < 0n) {
+    sinal = -sinal
+    denom = -denom
+  }
+  const fator = 10n ** BigInt(casas)
+  const q = numer * fator
+  const inteiro = q / denom
+  const rem = q % denom
+  let escolhido = inteiro
+  if (rem * 2n > denom) escolhido = inteiro + 1n
+  else if (rem * 2n === denom && inteiro % 2n !== 0n) escolhido = inteiro + 1n
+  return Number(sinal * escolhido) / 10 ** casas
+}
+
+function decimalStringToFraction(valor: number): { numer: bigint; denom: bigint } {
+  if (!Number.isFinite(valor)) return { numer: 0n, denom: 1n }
+  let s = valor.toString()
+  let exp = 0
+  if (/e/i.test(s)) {
+    const [m, e] = s.split(/e/i)
+    s = m
+    exp = Number(e)
+  }
+  const neg = s.startsWith('-')
+  s = s.replace(/^-/, '')
+  const [ip, fp = ''] = s.split('.')
+  let numer = BigInt((ip || '0') + fp)
+  let denom = 10n ** BigInt(fp.length)
+  if (exp > 0) numer *= 10n ** BigInt(exp)
+  if (exp < 0) denom *= 10n ** BigInt(-exp)
+  if (neg) numer = -numer
+  return { numer, denom }
+}
+
 /** HALF_EVEN (ABNT NBR 5891), igual a ArredondamentoUtils.MODO da calculadora 1.7.2. */
 export function arredondarHalfEven(valor: number, casas: number): number {
   if (!Number.isFinite(valor)) return valor
-  const fator = 10 ** casas
-  const sinal = valor < 0 ? -1 : 1
-  const abs = Math.abs(valor)
-  const deslocado = abs * fator
-  const inteiro = Math.floor(deslocado + 1e-11)
-  const frac = deslocado - inteiro
-  let escolhido: number
-  if (frac > 0.5 + 1e-9) escolhido = inteiro + 1
-  else if (frac < 0.5 - 1e-9) escolhido = inteiro
-  else escolhido = inteiro % 2 === 0 ? inteiro : inteiro + 1
-  return (sinal * escolhido) / fator
+  const { numer, denom } = decimalStringToFraction(valor)
+  return halfEvenDivide(numer, denom, casas)
 }
 
 /** Valor fiscal 13v2 — ArredondamentoUtils.arredondarValorFiscal. */
@@ -44,7 +77,9 @@ export function aliquotaEfetivaPublicada(aliquotaNominalPct: number, pRedPct: nu
 export function valorTributo(vBc: number, pAliqEfetPct: number): number {
   const base = arredondarValorFiscal(vBc)
   const aliq = arredondarAliquotaPublicada(pAliqEfetPct)
-  return arredondarValorFiscal((base * aliq) / 100)
+  const { numer: nB, denom: dB } = decimalStringToFraction(base)
+  const { numer: nA, denom: dA } = decimalStringToFraction(aliq)
+  return halfEvenDivide(nB * nA, dB * dA * 100n, 2)
 }
 
 export const TOLERANCIA_VALOR_NT = 0.01

@@ -28,6 +28,10 @@ test('arredondamento 1.7.2: HALF_EVEN 25,00 × 0,9% = 0,22 e 14,00 × 0,9% = 0,1
   assert.equal(calc.valorTributo(100, 0.1), 0.1)
 })
 
+test('arredondamento 1.7.2: 1000000325 × 0,9% → 9000002,92 (empate HALF_EVEN em inteiro)', () => {
+  assert.equal(calc.valorTributo(1000000325, 0.9), 9000002.92)
+})
+
 test('alíquota efetiva publicada: redução 40% em 0,9% → 0,54', () => {
   assert.equal(calc.aliquotaEfetivaPublicada(0.9, 40), 0.54)
   assert.equal(calc.aliquotaEfetivaPublicada(0.1, 40), 0.06)
@@ -93,6 +97,59 @@ test('IBSCBSTot divergente da soma dos itens (0,25 vs 0,26)', () => {
   assert.ok(r.totais.divergencias.some((d) => d.campo === 'vCBS'))
   assert.equal(r.linhas[0].vCbsEsp, 0.13)
   assert.equal(r.linhas[1].vCbsEsp, 0.13)
+})
+
+test('redução declarada quando a tabela pede 0 é divergência; ausente não é', () => {
+  const base = {
+    modelo: '65',
+    ano: 2026,
+    cstXml: '000',
+    classTribXml: '000001',
+    vBcXml: 100,
+    vBcNt: 100,
+    pIbsUfXml: 0.1,
+    pIbsMunXml: 0,
+    pCbsXml: 0.9,
+    pRedUfXml: null,
+    pRedMunXml: null,
+    pRedCbsXml: null,
+    pEfetUfXml: null,
+    pEfetMunXml: null,
+    pEfetCbsXml: null,
+    vIbsUfXml: 0.1,
+    vIbsMunXml: 0,
+    vIbsXml: 0.1,
+    vCbsXml: 0.9,
+  }
+  const ok = validacao.validarItemIbsCbs(base)
+  assert.equal(ok.divergencias.some((d) => d.codigo === 'reducao'), false)
+  const ruim = validacao.validarItemIbsCbs({ ...base, pRedUfXml: 40 })
+  assert.ok(ruim.divergencias.some((d) => d.codigo === 'reducao' && d.campo === 'pRedAliq UF'))
+})
+
+test('vIBS do XML deve fechar com vIBSUF+vIBSMun publicados, não com o calculado', () => {
+  const r = validacao.validarItemIbsCbs({
+    modelo: '55',
+    ano: 2026,
+    cstXml: '000',
+    classTribXml: '000001',
+    vBcXml: 100,
+    vBcNt: 100,
+    pIbsUfXml: 0.1,
+    pIbsMunXml: 0,
+    pCbsXml: 0.9,
+    pRedUfXml: null,
+    pRedMunXml: null,
+    pRedCbsXml: null,
+    pEfetUfXml: null,
+    pEfetMunXml: null,
+    pEfetCbsXml: null,
+    vIbsUfXml: 0.11,
+    vIbsMunXml: 0.01,
+    vIbsXml: 0.1,
+    vCbsXml: 0.9,
+  })
+  assert.ok(r.divergencias.some((d) => d.codigo === 'vIbs' && d.esperado === '0.12'))
 })
 
 test('CST 000 com cClassTrib 200047 é incompatível', () => {

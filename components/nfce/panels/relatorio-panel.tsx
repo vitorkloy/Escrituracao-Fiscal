@@ -116,6 +116,7 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
     try {
       const r = await window.electron.fs.selecionarPasta()
       if (r) {
+        if (r !== pasta) setResumoIbsCbs(null)
         setPasta(r)
         await carregarPreviewXmls(r)
       }
@@ -567,7 +568,7 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
                       key={`${a.chave}-${a.item}`}
                       className="px-2 py-1 font-mono border-b border-[var(--border)] last:border-b-0 text-[var(--text-primary)]"
                     >
-                      item {a.item} · {a.divergencias || '—'}
+                      {a.chave} · item {a.item} · {a.divergencias || '—'}
                     </div>
                   ))}
                 </div>

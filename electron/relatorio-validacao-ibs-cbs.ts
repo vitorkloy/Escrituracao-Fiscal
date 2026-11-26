@@ -266,6 +266,22 @@ function compararNum(
   }
 }
 
+/** Ausente conta como 0 quando a tabela não prevê redução; redução extra é divergência. */
+function compararReducao(
+  lista: DivergenciaCampo[],
+  campo: string,
+  xml: number | null | undefined,
+  esp: number
+) {
+  if (esp > 0) {
+    compararNum(lista, 'reducao', campo, xml, esp, TOLERANCIA_ALIQ, 'Redução da tabela cClassTrib')
+    return
+  }
+  if (xml != null && Math.abs(xml) > TOLERANCIA_ALIQ) {
+    addDiv(lista, 'reducao', campo, String(xml), '0', 'Redução indevida: tabela não prevê pRed')
+  }
+}
+
 export function validarItemIbsCbs(opts: {
   modelo: string
   ano: number
@@ -333,17 +349,18 @@ export function validarItemIbsCbs(opts: {
   avisos.push(...calc.avisos)
 
   if (opts.vBcXml != null && !quaseIgual(opts.vBcXml, opts.vBcNt, TOLERANCIA_VALOR_NT)) {
-    addDiv(
-      divergencias,
-      'base_nt',
-      'vBC',
-      fmt2(opts.vBcXml),
-      fmt2(opts.vBcNt),
-      'Base do XML difere da composição NT 2025.002 (aviso; valores usam o vBC declarado)'
+    avisos.push(
+      `Base NT 2025.002 ${fmt2(opts.vBcNt)} ≠ vBC XML ${fmt2(opts.vBcXml)} (aviso; valores usam o vBC declarado)`
     )
   }
 
-  const recalculaValores = calc.tipo === 'padrao' || calc.tipo === 'sem'
+  const diferido = classif?.codigo === '510001' || classif?.codigo === '515001'
+  if (diferido) {
+    avisos.push(
+      `cClassTrib ${classif.codigo}: diferimento (pDif/vDif) não recalculado nesta versão — valores a pagar não conferidos`
+    )
+  }
+  const recalculaValores = (calc.tipo === 'padrao' || calc.tipo === 'sem') && !diferido
   if (calc.tipo === 'sem') {
     const destacado =
       (opts.vIbsUfXml != null && Math.abs(opts.vIbsUfXml) > TOLERANCIA_VALOR_NT) ||
@@ -360,15 +377,9 @@ export function validarItemIbsCbs(opts: {
     if (calc.cbs) {
       compararNum(divergencias, 'aliquota', 'pCBS', opts.pCbsXml, calc.cbs.pAliq, TOLERANCIA_ALIQ, 'Alíquota CBS de referência 1.7.2')
     }
-    if (calc.ibsUf.pRed > 0) {
-      compararNum(divergencias, 'reducao', 'pRedAliq UF', opts.pRedUfXml, calc.ibsUf.pRed, TOLERANCIA_ALIQ, 'Redução da tabela cClassTrib')
-    }
-    if (calc.ibsMun.pRed > 0) {
-      compararNum(divergencias, 'reducao', 'pRedAliq Mun', opts.pRedMunXml, calc.ibsMun.pRed, TOLERANCIA_ALIQ, 'Redução da tabela cClassTrib')
-    }
-    if (calc.cbs && calc.cbs.pRed > 0) {
-      compararNum(divergencias, 'reducao', 'pRedAliq CBS', opts.pRedCbsXml, calc.cbs.pRed, TOLERANCIA_ALIQ, 'Redução da tabela cClassTrib')
-    }
+    compararReducao(divergencias, 'pRedAliq UF', opts.pRedUfXml, calc.ibsUf.pRed)
+    compararReducao(divergencias, 'pRedAliq Mun', opts.pRedMunXml, calc.ibsMun.pRed)
+    if (calc.cbs) compararReducao(divergencias, 'pRedAliq CBS', opts.pRedCbsXml, calc.cbs.pRed)
     const efetUfXml = opts.pEfetUfXml ?? (calc.ibsUf.pRed === 0 ? opts.pIbsUfXml : null)
     const efetMunXml = opts.pEfetMunXml ?? (calc.ibsMun.pRed === 0 ? opts.pIbsMunXml : null)
     const efetCbsXml = opts.pEfetCbsXml ?? (calc.cbs && calc.cbs.pRed === 0 ? opts.pCbsXml : null)
@@ -382,11 +393,18 @@ export function validarItemIbsCbs(opts: {
     if (calc.cbs) {
       compararNum(divergencias, 'valor', 'vCBS', opts.vCbsXml, calc.cbs.valor, TOLERANCIA_VALOR_NT, 'arred2(vBC × pAliqEfet ÷ 100) HALF_EVEN')
     }
-    const vIbsXml = opts.vIbsXml ?? (opts.vIbsUfXml != null && opts.vIbsMunXml != null
-      ? arredondarValorFiscal(opts.vIbsUfXml + opts.vIbsMunXml)
-      : null)
-    if (vIbsXml != null && !quaseIgual(vIbsXml, calc.vIbs, 0)) {
-      addDiv(divergencias, 'vIbs', 'vIBS', fmt2(vIbsXml), fmt2(calc.vIbs), 'vIBS deve ser a soma de vIBSUF e vIBSMun publicados (1.7.2, sem tolerância)')
+    if (opts.vIbsUfXml != null && opts.vIbsMunXml != null && opts.vIbsXml != null) {
+      const somaXml = arredondarValorFiscal(opts.vIbsUfXml + opts.vIbsMunXml)
+      if (!quaseIgual(opts.vIbsXml, somaXml, 0)) {
+        addDiv(
+          divergencias,
+          'vIbs',
+          'vIBS',
+          fmt2(opts.vIbsXml),
+          fmt2(somaXml),
+          'vIBS deve ser a soma de vIBSUF e vIBSMun publicados (1.7.2, sem tolerância)'
+        )
+      }
     }
   }
 
@@ -440,7 +458,7 @@ export function validarXmlIbsCbs(xmlStr: string): {
   const dhEmi = xmlStr.match(/<(?:[\w.-]+:)?dhEmi>([^<]+)</i)?.[1] || extraido.linhas[0]?.emissao || ''
   const ano = anoDeDhEmi(dhEmi, extraido.linhas[0]?.emissao || '')
 
-  const soma: TotaisIbsCbsXml = { vBc: 0, vIbsUf: 0, vIbsMun: 0, vIbs: 0, vCbs: 0 }
+  const soma: TotaisIbsCbsXml = { vBc: null, vIbsUf: null, vIbsMun: null, vIbs: null, vCbs: null }
   const linhas: LinhaValidacaoIbsCbs[] = []
 
   for (const l of extraido.linhas) {
