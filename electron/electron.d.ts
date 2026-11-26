@@ -550,6 +550,27 @@ declare global {
           cabecalho?: { nome?: string; cnpj?: string }
           xMotivo?: string
         }>
+        listarXmlsIbsCbs(pastaSaida: string): Promise<{
+          ok: boolean
+          totalXml: number
+          elegiveis: number
+          arquivos: string[]
+          xMotivo?: string
+        }>
+        validarIbsCbs(pastaSaida: string): Promise<{
+          ok: boolean
+          arquivo?: string
+          caminhoCompleto?: string
+          notas?: number
+          itens?: number
+          comDivergencia?: number
+          totaisDivergentes?: number
+          avisos?: number
+          versaoCalculadora?: string
+          arquivos?: string[]
+          amostra?: Array<{ chave: string; item: string; divergencias: string }>
+          xMotivo?: string
+        }>
       }
       xmlRetencao: {
         selecionarXmls(): Promise<string[]>

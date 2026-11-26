@@ -255,9 +255,12 @@ function extrairIbsCbs(imposto: unknown): {
   })()
 
   const gCBS = (() => {
-    if (!raiz || typeof raiz !== 'object') return null
-    const r = raiz as Record<string, unknown>
-    return r.gCBS ?? r.CBS ?? null
+    const de = (obj: unknown) => {
+      if (!obj || typeof obj !== 'object') return null
+      const r = obj as Record<string, unknown>
+      return r.gCBS ?? r.CBS ?? null
+    }
+    return de(raiz) ?? de(gIBS)
   })()
 
   return {

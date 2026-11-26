@@ -20,6 +20,18 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
   const [qtdXmlFormatoChave44, setQtdXmlFormatoChave44] = useState(0)
   const [xmlsNotas, setXmlsNotas] = useState<string[]>([])
   const [totalXmlArvore, setTotalXmlArvore] = useState(0)
+  const [xmlsIbsCbs, setXmlsIbsCbs] = useState<string[]>([])
+  const [totalXmlIbsCbs, setTotalXmlIbsCbs] = useState(0)
+  const [isGerandoIbsCbs, setIsGerandoIbsCbs] = useState(false)
+  const [resumoIbsCbs, setResumoIbsCbs] = useState<{
+    arquivo: string
+    notas: number
+    itens: number
+    comDivergencia: number
+    totaisDivergentes: number
+    versao: string
+    amostra: Array<{ chave: string; item: string; divergencias: string }>
+  } | null>(null)
   const [arquivoEfd, setArquivoEfd] = useState('')
   const [isGerandoEfd, setIsGerandoEfd] = useState(false)
   const [isCarregandoEfd, setIsCarregandoEfd] = useState(false)
@@ -44,13 +56,16 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
       setQtdXmlFormatoChave44(0)
       setXmlsNotas([])
       setTotalXmlArvore(0)
+      setXmlsIbsCbs([])
+      setTotalXmlIbsCbs(0)
       return
     }
     setIsCarregandoXmls(true)
     try {
-      const [resp, respNotas] = await Promise.all([
+      const [resp, respNotas, respIbs] = await Promise.all([
         window.electron.relatorio.listarXmls(pastaAlvo),
         window.electron.relatorio.listarXmlsNotas(pastaAlvo),
+        window.electron.relatorio.listarXmlsIbsCbs(pastaAlvo),
       ])
       if (!resp.ok) {
         setXmlArquivos([])
@@ -73,6 +88,14 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
         setXmlsNotas(respNotas.arquivos ?? [])
         setTotalXmlArvore(respNotas.totalXml ?? 0)
       }
+
+      if (!respIbs.ok) {
+        setXmlsIbsCbs([])
+        setTotalXmlIbsCbs(0)
+      } else {
+        setXmlsIbsCbs(respIbs.arquivos ?? [])
+        setTotalXmlIbsCbs(respIbs.totalXml ?? 0)
+      }
     } catch (err) {
       setXmlArquivos([])
       setXmlCancelados([])
@@ -80,6 +103,8 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
       setQtdXmlFormatoChave44(0)
       setXmlsNotas([])
       setTotalXmlArvore(0)
+      setXmlsIbsCbs([])
+      setTotalXmlIbsCbs(0)
       showToast('erro', err instanceof Error ? err.message : 'Erro ao listar XMLs.')
     } finally {
       setIsCarregandoXmls(false)
@@ -228,7 +253,50 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
     }
   }
 
-  const ocupado = isGerando || isGerandoNotas || isGerandoEfd
+  async function validarIbsCbs() {
+    if (!isElectron) {
+      showToast('erro', 'Funcionalidade disponível apenas no aplicativo desktop.')
+      return
+    }
+    if (!pasta) {
+      showToast('erro', 'Selecione a pasta onde estão os XMLs.')
+      return
+    }
+
+    setIsGerandoIbsCbs(true)
+    setResumoIbsCbs(null)
+    try {
+      const resp = await window.electron.relatorio.validarIbsCbs(pasta)
+      if (!resp.ok) {
+        showToast('erro', resp.xMotivo ?? 'Falha ao validar IBS/CBS.')
+        return
+      }
+      const notas = resp.notas ?? 0
+      const itens = resp.itens ?? 0
+      const comDiv = resp.comDivergencia ?? 0
+      const totDiv = resp.totaisDivergentes ?? 0
+      const arquivo = resp.arquivo ?? 'validacao_ibs_cbs.xlsx'
+      setResumoIbsCbs({
+        arquivo,
+        notas,
+        itens,
+        comDivergencia: comDiv,
+        totaisDivergentes: totDiv,
+        versao: resp.versaoCalculadora ?? '1.7.2',
+        amostra: resp.amostra ?? [],
+      })
+      showToast(
+        'ok',
+        `Validação IBS|CBS (${resp.versaoCalculadora ?? '1.7.2'}): ${notas} nota(s), ${itens} item(ns), ${comDiv} divergência(s) → ${arquivo}.`
+      )
+    } catch (err) {
+      showToast('erro', err instanceof Error ? err.message : 'Erro ao validar IBS/CBS.')
+    } finally {
+      setIsGerandoIbsCbs(false)
+    }
+  }
+
+  const ocupado = isGerando || isGerandoNotas || isGerandoEfd || isGerandoIbsCbs
 
   return (
     <div className="fade-in flex flex-col h-full">
@@ -239,7 +307,8 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
 
         <p className="text-sm text-[var(--text-secondary)] mb-4">
           Gere os relatórios a partir dos XMLs (selecione a pasta abaixo) ou de um arquivo EFD ICMS/IPI (seção no fim da página). Com XMLs, o comparativo NFC-e usa a pasta plana; o relatório Notas
-          percorre subpastas (ex.: DistDFe ou SAT <span className="font-mono">CNPJ/ano/mês</span>).
+          percorre subpastas (ex.: DistDFe ou SAT <span className="font-mono">CNPJ/ano/mês</span>). A{' '}
+          <strong>Validação Notas IBS|CBS</strong> confere modelos 55 e 65 com a calculadora RFB 1.7.2 embarcada.
         </p>
 
         <div className="flex gap-3">
@@ -415,6 +484,104 @@ export function RelatorioPanel({ showToast }: RelatorioPanelProps) {
             className="flex items-center justify-center px-5 py-2.5 rounded text-sm font-semibold no-drag bg-[var(--teal-glow)] border border-[var(--teal-dim)] text-[var(--teal)] disabled:opacity-60"
           >
             {isGerandoNotas ? 'Gerando…' : 'Gerar relatório Notas'}
+          </button>
+        </section>
+
+        <section>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-primary)] mb-2">
+            Validação Notas IBS|CBS
+          </h3>
+          <p className="text-sm text-[var(--text-secondary)] mb-3">
+            Confere NF-e (55) e NFC-e (65) com os parâmetros embarcados da Calculadora de Tributos da RFB{' '}
+            <span className="font-mono">1.7.2</span> (tabela cClassTrib V0073, alíquotas de teste 2026, arredondamento
+            HALF_EVEN). Não chama API remota e não exige Java. Gera{' '}
+            <span className="font-mono">validacao_ibs_cbs.xlsx</span> na pasta, com células divergentes em destaque.
+          </p>
+
+          <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-3 mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs uppercase tracking-widest text-[var(--text-muted)]">
+                Prévia 55/65 (árvore)
+              </p>
+              <span className="text-xs text-[var(--text-secondary)]">
+                Elegíveis:{' '}
+                <span className="font-semibold text-[var(--text-primary)]">{xmlsIbsCbs.length}</span>
+                {totalXmlIbsCbs > 0 && (
+                  <span className="text-[var(--text-muted)]"> / {totalXmlIbsCbs} XML(s)</span>
+                )}
+              </span>
+            </div>
+            {isCarregandoXmls ? (
+              <p className="text-xs text-[var(--text-muted)]">Carregando arquivos…</p>
+            ) : xmlsIbsCbs.length === 0 ? (
+              <p className="text-xs text-[var(--text-muted)]">
+                Nenhum XML de NF-e (55) ou NFC-e (65) com itens na pasta.
+              </p>
+            ) : (
+              <div className="max-h-40 overflow-auto rounded border border-[var(--border)] bg-[var(--bg-surface)]">
+                {xmlsIbsCbs.slice(0, 15).map((arquivo) => (
+                  <div
+                    key={arquivo}
+                    className="px-2 py-1 text-xs font-mono border-b border-[var(--border)] last:border-b-0 text-[var(--text-primary)]"
+                    title={arquivo}
+                  >
+                    {arquivo}
+                  </div>
+                ))}
+              </div>
+            )}
+            {xmlsIbsCbs.length > 15 && (
+              <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+                Mostrando 15 de {xmlsIbsCbs.length} arquivos.
+              </p>
+            )}
+          </div>
+
+          {resumoIbsCbs && (
+            <div className="rounded border border-[var(--border)] bg-[var(--bg-raised)] p-3 mb-3 text-xs text-[var(--text-secondary)] space-y-1">
+              <p>
+                Arquivo:{' '}
+                <span className="font-mono text-[var(--text-primary)]">{resumoIbsCbs.arquivo}</span>
+              </p>
+              <p>
+                Calculadora RFB{' '}
+                <span className="font-mono text-[var(--text-primary)]">{resumoIbsCbs.versao}</span>
+                {' · '}
+                {resumoIbsCbs.notas} nota(s), {resumoIbsCbs.itens} item(ns)
+              </p>
+              <p>
+                Divergências em itens:{' '}
+                <span className="font-semibold text-[var(--text-primary)]">
+                  {resumoIbsCbs.comDivergencia}
+                </span>
+                {' · '}
+                Totais divergentes:{' '}
+                <span className="font-semibold text-[var(--text-primary)]">
+                  {resumoIbsCbs.totaisDivergentes}
+                </span>
+              </p>
+              {resumoIbsCbs.amostra.length > 0 && (
+                <div className="mt-2 max-h-28 overflow-auto rounded border border-[var(--border)] bg-[var(--bg-surface)]">
+                  {resumoIbsCbs.amostra.map((a) => (
+                    <div
+                      key={`${a.chave}-${a.item}`}
+                      className="px-2 py-1 font-mono border-b border-[var(--border)] last:border-b-0 text-[var(--text-primary)]"
+                    >
+                      item {a.item} · {a.divergencias || '—'}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => void validarIbsCbs()}
+            disabled={ocupado || !pasta}
+            className="flex items-center justify-center px-5 py-2.5 rounded text-sm font-semibold no-drag bg-[var(--teal-glow)] border border-[var(--teal-dim)] text-[var(--teal)] disabled:opacity-60"
+          >
+            {isGerandoIbsCbs ? 'Validando…' : 'Validar IBS|CBS'}
           </button>
         </section>
 

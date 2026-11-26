@@ -74,6 +74,10 @@ import {
   type CabecalhoEmpresaRelatorio,
 } from './relatorio-xlsx'
 import { previewRelatorioEfd, gerarRelatoriosEfd } from './relatorio-efd'
+import {
+  gerarValidacaoIbsCbsNaPasta,
+  listarXmlsValidacaoIbsCbs,
+} from './relatorio-validacao-ibs-cbs'
 
 const execAsync = promisify(exec)
 const execFileAsync = promisify(execFile)
@@ -2558,4 +2562,12 @@ ipcMain.handle('relatorio:preview-efd', async (_e, caminhoEfd: string) => {
 
 ipcMain.handle('relatorio:gerar-xlsx-efd', async (_e, caminhoEfd: string) => {
   return gerarRelatoriosEfd(caminhoEfd)
+})
+
+ipcMain.handle('relatorio:listar-xmls-ibs-cbs', async (_e, pastaSaida: string) => {
+  return listarXmlsValidacaoIbsCbs(pastaSaida)
+})
+
+ipcMain.handle('relatorio:validar-ibs-cbs', async (_e, pastaSaida: string) => {
+  return gerarValidacaoIbsCbsNaPasta(pastaSaida)
 })

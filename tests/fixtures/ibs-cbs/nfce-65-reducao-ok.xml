@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- XML SINTÉTICO: NFC-e 65 com cClassTrib 200047 (bares/restaurantes, redução 40%). CNPJ fictício. -->
+<nfeProc versao="4.00" xmlns="http://www.portalfiscal.inf.br/nfe">
+  <NFe>
+    <infNFe Id="NFe35260111222333000181650010000000031000000035" versao="4.00">
+      <ide>
+        <cUF>35</cUF><mod>65</mod><serie>1</serie><nNF>3</nNF>
+        <dhEmi>2026-03-15T13:00:00-03:00</dhEmi>
+        <tpNF>1</tpNF><idDest>1</idDest><finNFe>1</finNFe>
+      </ide>
+      <emit>
+        <CNPJ>11222333000181</CNPJ><xNome>EMPRESA TESTE LTDA</xNome>
+        <enderEmit><UF>SP</UF></enderEmit><CRT>3</CRT>
+      </emit>
+      <det nItem="1">
+        <prod>
+          <cProd>C1</cProd><cEAN>SEM GTIN</cEAN><xProd>Refeicao</xProd>
+          <NCM>21050010</NCM><CFOP>5102</CFOP><uCom>UN</uCom><qCom>1.0000</qCom>
+          <vUnCom>100.00</vUnCom><vProd>100.00</vProd>
+        </prod>
+        <imposto>
+          <ICMS><ICMS00><orig>0</orig><CST>00</CST><vBC>0.00</vBC><pICMS>0.00</pICMS><vICMS>0.00</vICMS></ICMS00></ICMS>
+          <PIS><PISNT><CST>08</CST></PISNT></PIS>
+          <COFINS><COFINSNT><CST>08</CST></COFINSNT></COFINS>
+          <IBSCBS>
+            <CST>200</CST><cClassTrib>200047</cClassTrib>
+            <gIBSCBS>
+              <vBC>100.00</vBC>
+              <gIBSUF>
+                <pIBSUF>0.1000</pIBSUF>
+                <gRed><pRedAliq>40.0000</pRedAliq><pAliqEfet>0.0600</pAliqEfet></gRed>
+                <vIBSUF>0.06</vIBSUF>
+              </gIBSUF>
+              <gIBSMun>
+                <pIBSMun>0.0000</pIBSMun>
+                <gRed><pRedAliq>40.0000</pRedAliq><pAliqEfet>0.0000</pAliqEfet></gRed>
+                <vIBSMun>0.00</vIBSMun>
+              </gIBSMun>
+              <vIBS>0.06</vIBS>
+              <gCBS>
+                <pCBS>0.9000</pCBS>
+                <gRed><pRedAliq>40.0000</pRedAliq><pAliqEfet>0.5400</pAliqEfet></gRed>
+                <vCBS>0.54</vCBS>
+              </gCBS>
+            </gIBSCBS>
+          </IBSCBS>
+        </imposto>
+      </det>
+      <total>
+        <ICMSTot><vBC>0.00</vBC><vICMS>0.00</vICMS><vProd>100.00</vProd><vNF>100.00</vNF><vPIS>0.00</vPIS><vCOFINS>0.00</vCOFINS></ICMSTot>
+        <IBSCBSTot>
+          <vBCIBSCBS>100.00</vBCIBSCBS>
+          <gIBS>
+            <gIBSUF><vIBSUF>0.06</vIBSUF></gIBSUF>
+            <gIBSMun><vIBSMun>0.00</vIBSMun></gIBSMun>
+            <vIBS>0.06</vIBS>
+          </gIBS>
+          <gCBS><vCBS>0.54</vCBS></gCBS>
+        </IBSCBSTot>
+      </total>
+    </infNFe>
+  </NFe>
+</nfeProc>

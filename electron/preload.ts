@@ -263,6 +263,10 @@ contextBridge.exposeInMainWorld('electron', {
     selecionarEfd: () => ipcRenderer.invoke('relatorio:selecionar-efd') as Promise<string | null>,
     previewEfd: (caminhoEfd: string) => ipcRenderer.invoke('relatorio:preview-efd', caminhoEfd),
     gerarXlsxEfd: (caminhoEfd: string) => ipcRenderer.invoke('relatorio:gerar-xlsx-efd', caminhoEfd),
+    listarXmlsIbsCbs: (pastaSaida: string) =>
+      ipcRenderer.invoke('relatorio:listar-xmls-ibs-cbs', pastaSaida),
+    validarIbsCbs: (pastaSaida: string) =>
+      ipcRenderer.invoke('relatorio:validar-ibs-cbs', pastaSaida),
   },
 
   xmlRetencao: {
